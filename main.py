@@ -1,0 +1,146 @@
+"""
+Main CLI entry point for Multi-Agent AI Code Debugger & PR Patch Generator.
+Runs the complete LangGraph pipeline through Member 1, Member 2, and Member 3:
+Buggy Code -> Analyzer (M1) -> Test Generator (M2) -> Fixer (M3) -> Verify (Pytest) -> Open PR (M3)
+"""
+
+import os
+import sys
+import argparse
+from unittest.mock import patch
+
+from src.state import DebugState
+from src.graph import build_graph
+
+
+# Sample fallback buggy code if no file is provided
+DEFAULT_BUGGY_CODE = """def sum_list(numbers: list) -> int:
+    total = 0
+    # BUG: Off-by-one error (range excludes last element)
+    for i in range(len(numbers) - 1):
+        total += numbers[i]
+    return total
+"""
+
+DEFAULT_ERROR_LOG = (
+    "AssertionError: assert sum_list([1, 2, 3, 4]) == 10 failed (returned 6 instead of 10)"
+)
+
+
+def run_pipeline(source_code: str, error_log: str, file_path: str = "calculator.py", mock: bool = False):
+    print("\n" + "=" * 70)
+    print("🚀 STARTING MULTI-AGENT DEBUGGER PIPELINE")
+    print("=" * 70)
+    print(f"Target File : {file_path}")
+    print(f"Execution   : {'[OFFLINE MOCK MODE]' if mock else '[LIVE LLM MODE]'}")
+    print("-" * 70)
+
+    initial_state: DebugState = {
+        "file_path": file_path,
+        "source_code": source_code,
+        "error_log": error_log,
+        "attempts": 0,
+        "max_attempts": 3,
+        "logs": ["Pipeline initialized"],
+    }
+
+    app = build_graph()
+
+    def _execute():
+        print("\n⏳ Executing agent workflow...\n")
+        final_state = initial_state
+        for event in app.stream(initial_state):
+            for node_name, node_output in event.items():
+                print(f"▶ Step completed: [{node_name}]")
+                if "logs" in node_output and node_output["logs"]:
+                    print(f"  • Log: {node_output['logs'][-1]}")
+                final_state.update(node_output)
+        return final_state
+
+    if mock:
+        # Mock responses for offline zero-cost testing
+        mock_analysis = {
+            "root_cause": "Off-by-one defect: range(len(numbers) - 1) excludes final item.",
+            "file": file_path,
+            "function": "sum_list",
+            "line_start": 1,
+            "line_end": 7,
+        }
+        mock_tests = (
+            f"from {os.path.splitext(os.path.basename(file_path))[0]} import sum_list\n"
+            "def test_sum_list_normal():\n"
+            "    assert sum_list([1, 2, 3, 4]) == 10\n"
+            "def test_sum_list_single():\n"
+            "    assert sum_list([5]) == 5\n"
+            "def test_sum_list_empty():\n"
+            "    assert sum_list([]) == 0\n"
+        )
+        mock_fixed = source_code.replace("range(len(numbers) - 1)", "range(len(numbers))")
+
+        def mock_llm_json(system: str, user: str) -> dict:
+            if "code repair" in system.lower() or "fixer" in system.lower():
+                return {"fixed_code": mock_fixed}
+            elif "test-generation" in system.lower():
+                return {"tests": mock_tests}
+            else:
+                return mock_analysis
+
+        with patch("src.agents.analyzer.call_llm_json", side_effect=mock_llm_json), \
+             patch("src.agents.test_generator.call_llm_json", side_effect=mock_llm_json), \
+             patch("src.agents.fixer.call_llm_json", side_effect=mock_llm_json):
+            final_state = _execute()
+    else:
+        final_state = _execute()
+
+    print("\n" + "=" * 70)
+    print("🏁 PIPELINE EXECUTION RESULTS")
+    print("=" * 70)
+    print(f"Tests Passed : {final_state.get('test_passed', False)}")
+    print(f"Total Attempts: {final_state.get('attempts', 0)}")
+    print(f"PR URL / Patch : {final_state.get('pr_url', 'None')}")
+
+    if final_state.get("patch_diff"):
+        print("\n--- Unified Patch Diff ---")
+        print(final_state["patch_diff"])
+
+    if final_state.get("test_output"):
+        print("\n--- Test Suite Output ---")
+        print(final_state["test_output"])
+
+    print("=" * 70)
+    if final_state.get("test_passed"):
+        print("🎉 SUCCESS: Bug was isolated, reproduced, repaired, verified, and exported!")
+    else:
+        print("⚠️ Pipeline ended without passing all tests within maximum attempts.")
+    print("=" * 70 + "\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Multi-Agent AI Code Debugger CLI")
+    parser.add_argument("--file", "-f", type=str, default="demo_bugs/bug1_off_by_one/calculator.py",
+                        help="Path to buggy source file")
+    parser.add_argument("--mock", action="store_true",
+                        help="Run in offline mock mode without calling external LLM APIs")
+    args = parser.parse_args()
+
+    # Check for API keys if mock is not explicitly passed
+    has_keys = any(os.getenv(k) for k in ["GROQ_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"])
+    mock_mode = args.mock or not has_keys
+
+    if not args.mock and not has_keys:
+        print("ℹ️  No LLM API keys found in environment or .env file.")
+        print("ℹ️  Automatically enabling --mock mode for offline testing.\n")
+
+    if os.path.exists(args.file):
+        with open(args.file, "r", encoding="utf-8") as f:
+            source = f.read()
+        file_path = os.path.basename(args.file)
+    else:
+        source = DEFAULT_BUGGY_CODE
+        file_path = "calculator.py"
+
+    run_pipeline(source_code=source, error_log=DEFAULT_ERROR_LOG, file_path=file_path, mock=mock_mode)
+
+
+if __name__ == "__main__":
+    main()
