@@ -197,6 +197,7 @@ def prepare_analyzer_payload(
 ) -> Dict[str, Any]:
     """
     Prepare source code and error log payload ready for the Analyzer agent.
+    Resiliently resolves target_file by exact path, basename match, or test failure detection.
     """
     root = Path(workspace_path).resolve()
     scan = scan_workspace(str(root))
@@ -204,6 +205,21 @@ def prepare_analyzer_payload(
     selected_file = target_file
     detected_error = error_log
 
+    # 1. If target_file provided, check if it exists directly or matches a known file
+    if selected_file:
+        target_check = (root / selected_file).resolve()
+        if not target_check.exists():
+            # Check by basename or suffix (e.g. 'calculator.py' matches 'demo_bugs/bug1_off_by_one/calculator.py')
+            matches = [
+                f for f in scan["all_files"]
+                if Path(f).name == Path(selected_file).name or f.endswith(selected_file)
+            ]
+            if matches:
+                selected_file = matches[0]
+            else:
+                selected_file = None  # Fall through to auto-detection
+
+    # 2. Auto-detect failing tests if error log or target file is missing
     if not detected_error or not selected_file:
         candidate_file, auto_error = detect_failing_tests(str(root))
         if not selected_file and candidate_file:
@@ -211,6 +227,7 @@ def prepare_analyzer_payload(
         if not detected_error and auto_error:
             detected_error = auto_error
 
+    # 3. Fallback to primary source file or any discovered Python file
     if not selected_file:
         if scan["source_files"]:
             selected_file = scan["source_files"][0]
@@ -221,7 +238,12 @@ def prepare_analyzer_payload(
 
     target_full_path = (root / selected_file).resolve()
     if not target_full_path.exists():
-        raise FileNotFoundError(f"Target file not found: {selected_file}")
+        # Safe fallback to the very first file available
+        if scan["all_files"]:
+            selected_file = scan["all_files"][0]
+            target_full_path = (root / selected_file).resolve()
+        else:
+            raise FileNotFoundError(f"Target file not found in workspace: {selected_file}")
 
     source_code = target_full_path.read_text(encoding="utf-8", errors="replace")
 
@@ -229,7 +251,7 @@ def prepare_analyzer_payload(
         "workspace": str(root),
         "file_path": selected_file,
         "source_code": source_code,
-        "error_log": detected_error or f"Test inspection initiated for {selected_file}",
+        "error_log": detected_error or f"Automated defect inspection for {selected_file}",
         "all_files": scan["all_files"],
         "source_files": scan["source_files"],
         "test_files": scan["test_files"],

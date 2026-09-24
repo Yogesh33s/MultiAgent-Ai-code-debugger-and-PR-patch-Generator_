@@ -248,17 +248,18 @@ def run_debugger(
     workspace: str | None,
     repo_target_file: str | None,
 ) -> Iterator[tuple[Any, ...]]:
-    active_file = repo_target_file or target_file or file_path or "solution.py"
     repo_link = (repo_url or "").strip()
+    active_file = repo_target_file if repo_link else (target_file if uploaded else file_path)
 
-    # 1. If GitHub URL is provided and source not yet loaded, clone/scan repo
-    if repo_link and (not source_code.strip() or not workspace):
+    # 1. If GitHub URL is provided, clone and scan repository
+    if repo_link:
         if not is_valid_github_url(repo_link):
             yield "<div class='fail-state'>! INVALID GITHUB URL</div>", pipeline_html({}, ""), "[system] Use a valid public https://github.com/owner/repository URL.", format_analysis(None), "", "", "", "", ""
             return
         try:
-            cloned_dir, files = clone_or_download_repo(repo_link, branch.strip() or "main")
-            workspace = cloned_dir
+            if not workspace or not os.path.exists(workspace):
+                cloned_dir, files = clone_or_download_repo(repo_link, branch.strip() or "main")
+                workspace = cloned_dir
             payload = prepare_analyzer_payload(workspace, target_file=active_file, error_log=error_log)
             active_file = payload["file_path"]
             source_code = payload["source_code"]
@@ -267,11 +268,12 @@ def run_debugger(
             yield f"<div class='fail-state'>! REPOSITORY SCAN ERROR: {exc}</div>", pipeline_html({}, ""), f"[system] Failed to clone/scan repository: {exc}", format_analysis(None), "", "", "", "", ""
             return
 
-    # 2. If uploaded project is provided and source not yet loaded, extract/scan ZIP
-    elif uploaded and (not source_code.strip() or not workspace):
+    # 2. If uploaded project is provided, extract and scan ZIP
+    elif uploaded:
         try:
-            root, files = safe_extract_zip(uploaded)
-            workspace = root
+            if not workspace or not os.path.exists(workspace):
+                root, files = safe_extract_zip(uploaded)
+                workspace = root
             payload = prepare_analyzer_payload(workspace, target_file=active_file, error_log=error_log)
             active_file = payload["file_path"]
             source_code = payload["source_code"]
