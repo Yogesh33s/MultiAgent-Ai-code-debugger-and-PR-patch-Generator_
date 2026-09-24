@@ -43,90 +43,539 @@ THEME_JS = r"""
 """
 
 CSS = r"""
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-:root { --ink:#f5f7fa; --muted:#9aa4b2; --bg:#05060a; --panel:rgba(255,255,255,.045); --line:rgba(255,255,255,.10); --field:rgba(0,0,0,.22); --terminal:#030407; --violet:#7c5cff; --cyan:#5ee7ff; --green:#45e6a5; --amber:#ffc857; --red:#ff5c7a; --shadow:rgba(0,0,0,.18); }
-:root[data-theme="light"] { --ink:#172033; --muted:#596579; --bg:#eef3f8; --panel:rgba(255,255,255,.76); --line:rgba(23,32,51,.14); --field:rgba(255,255,255,.9); --terminal:#172033; --violet:#6043d6; --cyan:#087f9b; --green:#087d59; --amber:#936700; --red:#b52d4a; --shadow:rgba(32,49,76,.16); }
-* { box-sizing:border-box; }
-body, .gradio-container { margin:0 !important; background:var(--bg) !important; color:var(--ink) !important; font-family:'Space Grotesk',sans-serif !important; transition:background .35s ease,color .35s ease; }
-.gradio-container, .gradio-container * { color-scheme:dark; }
-:root[data-theme="light"] .gradio-container, :root[data-theme="light"] .gradio-container * { color-scheme:light; }
-.gradio-container { max-width:1440px !important; padding:0 28px 64px !important; background-image:linear-gradient(rgba(125,145,170,.06) 1px, transparent 1px),linear-gradient(90deg,rgba(125,145,170,.06) 1px,transparent 1px),radial-gradient(circle at 18% 0%,rgba(124,92,255,.18),transparent 31%),radial-gradient(circle at 88% 28%,rgba(94,231,255,.10),transparent 27%); background-size:52px 52px,52px 52px,100% 100%,100% 100%; }
-:root[data-theme="light"] .gradio-container { background-image:linear-gradient(rgba(85,108,134,.09) 1px, transparent 1px),linear-gradient(90deg,rgba(85,108,134,.09) 1px,transparent 1px),radial-gradient(circle at 15% 0%,rgba(124,92,255,.13),transparent 32%),radial-gradient(circle at 90% 20%,rgba(94,231,255,.14),transparent 28%); }
-#topbar { border-bottom:1px solid var(--line); padding:20px 0 17px; margin-bottom:42px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
-.brand { display:flex; align-items:center; gap:11px; font-weight:600; font-size:18px; letter-spacing:-.02em; }
-.brand-mark { width:25px; height:25px; display:grid; place-items:center; border:1px solid rgba(124,92,255,.7); border-radius:7px; background:linear-gradient(135deg,rgba(124,92,255,.9),rgba(94,231,255,.65)); color:#05060a; font-size:13px; font-weight:700; box-shadow:0 0 22px rgba(124,92,255,.3); }
-.nav-meta { margin-left:auto; text-align:right; color:var(--muted); font:11px 'DM Mono',monospace; letter-spacing:.12em; text-transform:uppercase; }
-.ready-dot { color:var(--green); }
-.theme-toggle { flex:0 0 auto; min-width:112px; padding:8px 12px !important; color:var(--ink) !important; background:var(--panel) !important; border:1px solid var(--line) !important; border-radius:999px !important; font:10px 'DM Mono',monospace !important; letter-spacing:.08em; }
-.hero { padding:12px 0 72px; display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,430px); align-items:center; gap:48px; }
-.hero-copy { max-width:850px; }
-.eyebrow,.section-kicker { color:var(--cyan); font:500 11px 'DM Mono',monospace; letter-spacing:.18em; text-transform:uppercase; }
-.hero h1 { font-size:clamp(48px,7vw,88px); line-height:.96; letter-spacing:-.075em; margin:18px 0 23px; max-width:760px; }
-.hero h1 span { color:var(--muted); }
-.hero p { max-width:620px; color:var(--muted); font-size:17px; line-height:1.65; margin:0; }
-.hero-actions { margin-top:29px; }
-.agent-visual { position:relative; min-height:390px; display:grid; place-items:center; isolation:isolate; }
-.agent-visual:before { content:''; position:absolute; width:280px; height:280px; border-radius:50%; background:radial-gradient(circle,rgba(124,92,255,.25),transparent 68%); filter:blur(10px); z-index:-2; }
-.agent-ring { position:absolute; width:310px; height:310px; border:1px solid rgba(94,231,255,.28); border-radius:50%; transform:rotateX(68deg) rotateZ(15deg); animation:orbit 10s linear infinite; box-shadow:0 0 35px rgba(94,231,255,.12); }
-.agent-ring:after { content:''; position:absolute; left:12%; top:-5px; width:9px; height:9px; border-radius:50%; background:var(--cyan); box-shadow:0 0 18px var(--cyan); }
-.agent-ring.two { width:245px; height:245px; transform:rotateY(68deg) rotateZ(-22deg); animation-duration:7s; animation-direction:reverse; border-color:rgba(124,92,255,.42); }
-.agent-halo { position:absolute; width:190px; height:190px; border-radius:50%; border:1px solid rgba(255,255,255,.2); background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(124,92,255,.08) 45%,rgba(94,231,255,.18)); box-shadow:inset -18px -20px 35px rgba(0,0,0,.4),0 0 45px rgba(94,231,255,.16); animation:float-agent 4.5s ease-in-out infinite; }
-.agent-halo:before { content:''; position:absolute; inset:17px; border-radius:50%; border:1px dashed rgba(255,255,255,.34); animation:spin 12s linear infinite; }
-.agent-face { position:absolute; width:106px; height:132px; border-radius:48% 52% 45% 45%; background:linear-gradient(145deg,#d9e5ee 0%,#718ca4 48%,#24384d 100%); box-shadow:inset -15px -12px 19px rgba(5,12,24,.42),0 18px 35px rgba(0,0,0,.35); transform:translateY(2px); }
-.agent-face:before { content:''; position:absolute; left:20px; top:50px; width:66px; height:24px; border-radius:20px; background:#071321; box-shadow:0 0 16px rgba(94,231,255,.38); }
-.agent-face:after { content:'•  •'; position:absolute; left:30px; top:48px; color:var(--cyan); font:18px 'DM Mono',monospace; letter-spacing:7px; text-shadow:0 0 10px var(--cyan); }
-.agent-core-label { position:absolute; bottom:16px; color:var(--muted); font:10px 'DM Mono',monospace; letter-spacing:.18em; text-transform:uppercase; }
-@keyframes orbit { to { transform:rotateX(68deg) rotateZ(375deg); } } @keyframes spin { to { transform:rotate(360deg); } } @keyframes float-agent { 50% { transform:translateY(-10px) scale(1.025); } }
-.section { border-top:1px solid var(--line); padding:52px 0; }
-.section-heading { display:flex; justify-content:space-between; gap:24px; align-items:flex-end; margin-bottom:24px; }
-.section-heading h2 { margin:8px 0 0; font-size:30px; letter-spacing:-.05em; }
-.section-heading p { color:var(--muted); margin:0; font-size:14px; }
-.glass-panel { background:var(--panel); border:1px solid var(--line); border-radius:18px; box-shadow:0 16px 60px var(--shadow); }
-.input-panel { padding:20px; }
-label span { color:var(--muted) !important; font:11px 'DM Mono',monospace !important; letter-spacing:.12em; text-transform:uppercase; }
-textarea, input, .gr-input, .gr-textbox { background:var(--field) !important; color:var(--ink) !important; border:1px solid var(--line) !important; border-radius:10px !important; }
-textarea::placeholder, input::placeholder { color:var(--muted) !important; opacity:.9 !important; }
-button, a, .gr-markdown, .prose, .tab-nav button, .tabs button { color:var(--ink) !important; }
-.gr-markdown p, .gr-markdown li, .prose p, .prose li { color:var(--muted) !important; }
-.gr-markdown a, .prose a { color:var(--cyan) !important; }
-.tabs, .tabitem, .form, .block, .gr-box, .gr-panel, .gr-group { border-color:var(--line) !important; }
-.tab-nav button.selected, .tab-nav button[aria-selected="true"] { color:var(--ink) !important; border-color:var(--violet) !important; }
-.code-container, .cm-editor, .cm-scroller { background:var(--field) !important; color:var(--ink) !important; }
-textarea:focus, input:focus { border-color:rgba(124,92,255,.8) !important; box-shadow:0 0 0 2px rgba(124,92,255,.15) !important; }
-button { transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease !important; }
-button:hover { transform:translateY(-1px); }
-.primary-button button { background:var(--violet) !important; color:white !important; border:0 !important; font-weight:600 !important; letter-spacing:.04em; box-shadow:0 8px 28px rgba(124,92,255,.28); }
-.secondary-button button { background:transparent !important; color:var(--ink) !important; border:1px solid var(--line) !important; }
-.upload-box { min-height:178px; border:1px dashed rgba(94,231,255,.36) !important; background:rgba(94,231,255,.025) !important; }
-.upload-box:hover { border-color:var(--cyan) !important; }
-.status-strip { min-height:48px; padding:14px 17px; border:1px solid var(--line); border-radius:11px; background:rgba(0,0,0,.24); font:12px 'DM Mono',monospace; color:var(--muted); }
-.pipeline-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
-.agent-node { padding:17px; min-height:122px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.03); position:relative; overflow:hidden; }
-.agent-node:after { content:''; position:absolute; top:50%; right:-11px; width:10px; height:1px; background:rgba(255,255,255,.2); }
-.agent-node:last-child:after { display:none; }
-.agent-icon { font:15px 'DM Mono',monospace; color:var(--muted); }
-.agent-name { margin-top:15px; font-size:13px; font-weight:600; letter-spacing:.03em; }
-.agent-desc { margin-top:7px; color:var(--muted); font-size:12px; line-height:1.4; }
-.agent-running { border-color:var(--violet); box-shadow:0 0 28px rgba(124,92,255,.22); animation:pulse 1.7s ease-in-out infinite; }
-.agent-success { border-color:rgba(69,230,165,.55); }.agent-success .agent-icon { color:var(--green); }.agent-error { border-color:rgba(255,92,122,.65); }.agent-error .agent-icon { color:var(--red); }
-@keyframes pulse { 50% { box-shadow:0 0 34px rgba(124,92,255,.38); } }
-.terminal { background:var(--terminal) !important; border:1px solid var(--line) !important; border-radius:13px !important; font:12px/1.75 'DM Mono',monospace !important; color:#b9c4d2 !important; }
-.log-wrap textarea { min-height:260px !important; }
-.result-panel { padding:20px; min-height:270px; }
-.result-panel pre, .result-panel code { font-family:'DM Mono',monospace !important; }
-.empty-state { color:var(--muted); line-height:1.8; padding:20px 0; }
-.about-panel { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(240px,.85fr); gap:32px; align-items:start; padding:26px; background:var(--panel); border:1px solid var(--line); border-radius:18px; box-shadow:0 16px 60px var(--shadow); }
-.about-panel h3 { margin:7px 0 12px; font-size:25px; letter-spacing:-.04em; }
-.about-panel p { color:var(--muted); line-height:1.7; margin:0; font-size:14px; }
-.about-list { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
-.about-list li { color:var(--muted); border-left:2px solid var(--cyan); padding-left:13px; font:12px/1.5 'DM Mono',monospace; }
-.success-state { color:var(--green); font:500 14px 'DM Mono',monospace; letter-spacing:.08em; }
-.fail-state { color:var(--red); font:500 14px 'DM Mono',monospace; letter-spacing:.08em; }
-.rights-line { color:var(--muted); text-align:center; font:11px 'DM Mono',monospace; padding-top:30px; letter-spacing:.08em; }
-footer, .gradio-footer, .built-with, [data-testid="footer"] { display:none !important; }
-@media(max-width:850px) { .gradio-container { padding:0 15px 40px !important; } #topbar { flex-wrap:wrap; } .nav-meta { order:3; width:100%; text-align:left; } .section-heading { display:block; } .section-heading p { margin-top:10px; } .pipeline-grid { grid-template-columns:1fr; } .agent-node:after { top:auto; right:50%; bottom:-11px; width:1px; height:10px; } .hero { grid-template-columns:1fr; padding-bottom:48px; gap:8px; } .hero h1 { font-size:54px; } .agent-visual { min-height:330px; transform:scale(.86); margin:-25px 0; } .about-panel { grid-template-columns:1fr; gap:22px; } }
-@media(prefers-reduced-motion:reduce) { *,*:before,*:after { animation:none !important; transition:none !important; } }
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+    --bg-main: #07090e;
+    --bg-surface: rgba(15, 23, 42, 0.65);
+    --bg-surface-elevated: rgba(30, 41, 59, 0.7);
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-accent: rgba(139, 92, 246, 0.3);
+    --border-active: rgba(6, 182, 212, 0.5);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --primary: #8b5cf6;
+    --primary-glow: rgba(139, 92, 246, 0.35);
+    --cyan: #06b6d4;
+    --cyan-glow: rgba(6, 182, 212, 0.3);
+    --emerald: #10b981;
+    --emerald-glow: rgba(16, 185, 129, 0.3);
+    --rose: #f43f5e;
+    --terminal-bg: #030712;
+    --glass-blur: blur(16px);
+}
+
+:root[data-theme="light"] {
+    --bg-main: #f8fafc;
+    --bg-surface: rgba(255, 255, 255, 0.85);
+    --bg-surface-elevated: #ffffff;
+    --border-subtle: rgba(15, 23, 42, 0.08);
+    --border-accent: rgba(139, 92, 246, 0.25);
+    --border-active: rgba(6, 182, 212, 0.4);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --primary: #7c3aed;
+    --primary-glow: rgba(124, 58, 237, 0.2);
+    --cyan: #0891b2;
+    --cyan-glow: rgba(8, 145, 178, 0.2);
+    --emerald: #059669;
+    --emerald-glow: rgba(5, 150, 105, 0.2);
+    --rose: #e11d48;
+    --terminal-bg: #0f172a;
+}
+
+* { box-sizing: border-box; }
+body, .gradio-container {
+    margin: 0 !important;
+    background: var(--bg-main) !important;
+    color: var(--text-primary) !important;
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.gradio-container {
+    max-width: 1440px !important;
+    padding: 0 32px 80px !important;
+    background-image:
+        radial-gradient(circle at 10% 10%, rgba(139, 92, 246, 0.12), transparent 40%),
+        radial-gradient(circle at 90% 20%, rgba(6, 182, 212, 0.1), transparent 45%),
+        radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.06), transparent 50%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px) !important;
+    background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px !important;
+}
+
+/* TOPBAR */
+#topbar {
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 22px 0;
+    margin-bottom: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    backdrop-filter: var(--glass-blur);
+}
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: -0.03em;
+}
+.brand-mark {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 800;
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.45);
+    animation: pulse-glow 3s infinite alternate;
+}
+.nav-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+}
+.system-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border-radius: 9999px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    color: var(--emerald);
+    font-weight: 600;
+}
+.pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 10px var(--emerald);
+    animation: radar-pulse 1.8s infinite;
+}
+.theme-toggle {
+    cursor: pointer;
+    padding: 7px 16px !important;
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 9999px !important;
+    color: var(--text-primary) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+}
+.theme-toggle:hover {
+    border-color: var(--border-accent) !important;
+    transform: translateY(-1px);
+}
+
+/* HERO SECTION */
+.hero {
+    display: grid;
+    grid-template-columns: 1.25fr 0.95fr;
+    align-items: center;
+    gap: 48px;
+    padding: 16px 0 54px;
+}
+.hero-copy h1 {
+    font-size: clamp(42px, 5.5vw, 68px);
+    line-height: 1.04;
+    letter-spacing: -0.04em;
+    font-weight: 800;
+    margin: 16px 0 20px;
+}
+.hero-gradient {
+    background: linear-gradient(135deg, #a78bfa 0%, #38bdf8 50%, #34d399 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.hero-copy p {
+    color: var(--text-secondary);
+    font-size: 18px;
+    line-height: 1.65;
+    max-width: 640px;
+    margin: 0;
+}
+.hero-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 26px;
+}
+.hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--border-subtle);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+/* 3D NEURAL VISUAL */
+.agent-visual {
+    position: relative;
+    min-height: 380px;
+    display: grid;
+    place-items: center;
+}
+.agent-core-glow {
+    position: absolute;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+    filter: blur(28px);
+    animation: breathing 4s ease-in-out infinite;
+}
+.agent-orb {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.8), rgba(6, 182, 212, 0.8));
+    box-shadow: 0 0 50px rgba(139, 92, 246, 0.4), inset -10px -10px 25px rgba(0, 0, 0, 0.5);
+    display: grid;
+    place-items: center;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    animation: float 4s ease-in-out infinite;
+}
+.agent-orb-inner {
+    width: 75px;
+    height: 75px;
+    border-radius: 50%;
+    background: #030712;
+    border: 2px dashed rgba(255, 255, 255, 0.4);
+    display: grid;
+    place-items: center;
+    animation: spin 16s linear infinite;
+}
+.agent-orb-icon {
+    font-size: 28px;
+}
+.orbital-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px dashed rgba(6, 182, 212, 0.35);
+    pointer-events: none;
+}
+.ring-1 {
+    width: 280px;
+    height: 280px;
+    transform: rotateX(65deg) rotateY(15deg);
+    animation: orbit-1 9s linear infinite;
+}
+.ring-2 {
+    width: 340px;
+    height: 340px;
+    transform: rotateX(-55deg) rotateY(30deg);
+    animation: orbit-2 13s linear infinite reverse;
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+@keyframes orbit-1 { to { transform: rotateX(65deg) rotateY(15deg) rotateZ(360deg); } }
+@keyframes orbit-2 { to { transform: rotateX(-55deg) rotateY(30deg) rotateZ(360deg); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+@keyframes breathing { 0%, 100% { opacity: 0.5; transform: scale(0.9); } 50% { opacity: 0.9; transform: scale(1.15); } }
+@keyframes radar-pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse-glow { 0% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.3); } 100% { box-shadow: 0 0 30px rgba(6, 182, 212, 0.6); } }
+
+/* SECTION CONTAINERS */
+.section {
+    border-top: 1px solid var(--border-subtle);
+    padding: 48px 0;
+}
+.section-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--cyan);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+.section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 24px;
+}
+.section-heading h2 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin: 6px 0 0;
+}
+.section-heading p {
+    color: var(--text-secondary);
+    margin: 0;
+    font-size: 14px;
+}
+
+/* CARDS & INPUTS */
+.glass-panel {
+    background: var(--bg-surface);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+}
+textarea, input, .gr-input, .gr-textbox {
+    background: rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 10px !important;
+    color: var(--text-primary) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 13px !important;
+    transition: all 0.2s ease !important;
+}
+textarea:focus, input:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px var(--primary-glow) !important;
+}
+label span {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color: var(--text-secondary) !important;
+}
+
+/* BUTTONS */
+.primary-button button {
+    background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+    color: #ffffff !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    letter-spacing: 0.04em !important;
+    padding: 13px 28px !important;
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.35) !important;
+    transition: all 0.25s ease !important;
+}
+.primary-button button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(139, 92, 246, 0.5) !important;
+}
+.secondary-button button {
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 10px !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    transition: all 0.2s ease !important;
+}
+.secondary-button button:hover {
+    border-color: var(--border-accent) !important;
+    background: var(--bg-surface-elevated) !important;
+    transform: translateY(-1px);
+}
+
+/* PIPELINE GRID */
+.pipeline-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.agent-node {
+    padding: 18px 16px;
+    min-height: 128px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+    position: relative;
+    backdrop-filter: var(--glass-blur);
+    transition: all 0.35s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.agent-icon {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+.agent-name {
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    margin-top: 10px;
+}
+.agent-desc {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.4;
+    margin-top: 4px;
+}
+.agent-running {
+    border-color: var(--primary) !important;
+    background: rgba(139, 92, 246, 0.08) !important;
+    box-shadow: 0 0 28px var(--primary-glow) !important;
+    animation: active-pulse 2s infinite alternate;
+}
+.agent-running .agent-icon {
+    color: var(--cyan);
+}
+.agent-success {
+    border-color: rgba(16, 185, 129, 0.45) !important;
+    background: rgba(16, 185, 129, 0.05) !important;
+}
+.agent-success .agent-icon {
+    color: var(--emerald);
+}
+.agent-error {
+    border-color: rgba(244, 63, 94, 0.5) !important;
+    background: rgba(244, 63, 94, 0.06) !important;
+}
+.agent-error .agent-icon {
+    color: var(--rose);
+}
+@keyframes active-pulse {
+    0% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.2); }
+    100% { box-shadow: 0 0 35px rgba(139, 92, 246, 0.5); }
+}
+
+/* TERMINAL CHROME */
+.terminal-window {
+    background: var(--terminal-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.35);
+}
+.terminal-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border-subtle);
+}
+.mac-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+.dot-red { background: #ff5f56; }
+.dot-yellow { background: #ffbd2e; }
+.dot-green { background: #27c93f; }
+.terminal-title {
+    margin-left: auto;
+    margin-right: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.terminal textarea {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: #38bdf8 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 12px !important;
+    line-height: 1.7 !important;
+}
+
+/* STATUS STATE STRIPS */
+.status-strip {
+    padding: 14px 20px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.success-state {
+    color: var(--emerald);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.fail-state {
+    color: var(--rose);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* RESULTS & ANALYSIS */
+.result-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.result-stat-box {
+    padding: 16px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+}
+.stat-box-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+.stat-box-value {
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 6px;
+    color: var(--text-primary);
+}
+.diagnosis-box {
+    padding: 18px;
+    border-radius: 12px;
+    background: rgba(139, 92, 246, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    margin-top: 10px;
+}
+
+/* FOOTER & RIGHTS */
+.rights-line {
+    text-align: center;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding-top: 36px;
+}
+footer, .gradio-footer, .built-with, [data-testid="footer"] { display: none !important; }
+
+@media(max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 24px; }
+    .pipeline-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 40px; }
+}
 """
+
 
 
 from src.tools.repo_loader import (
@@ -210,32 +659,77 @@ def load_demo() -> tuple[str, str, str]:
 
 
 def pipeline_html(state: dict[str, Any], active: str = "") -> str:
-    labels = [("01", "ANALYZER", "Root cause detection"), ("02", "TEST GENERATOR", "Reproduce failure"), ("03", "FIXER", "Candidate patch"), ("04", "VERIFY", "Run verification"), ("05", "PULL REQUEST", "Ready for review")]
+    steps = [
+        ("01", "ANALYZER", "Root cause detection", "🔍"),
+        ("02", "TEST GENERATOR", "Reproduce failure", "🧪"),
+        ("03", "FIXER", "Candidate patch", "🛠️"),
+        ("04", "VERIFY", "Isolated pytest", "⚡"),
+        ("05", "PULL REQUEST", "Export PR / patch", "🚀"),
+    ]
     logs = " ".join(state.get("logs", [])).lower()
     error = state.get("test_passed") is False and state.get("attempts", 0) >= state.get("max_attempts", 3)
     html = ["<div class='pipeline-grid'>"]
-    for number, name, desc in labels:
+    for number, name, desc, emoji in steps:
         key = name.split()[0].lower()
         if active == key:
-            cls, icon = "agent-running", "◉"
+            cls = "agent-running"
+            badge = "◉ ACTIVE"
         elif (name == "VERIFY" and state.get("test_passed") is True) or (name == "PULL REQUEST" and state.get("pr_url")) or key in logs:
-            cls, icon = "agent-success", "✓"
+            cls = "agent-success"
+            badge = "✓ PASSED"
         elif error and name == "VERIFY":
-            cls, icon = "agent-error", "!"
+            cls = "agent-error"
+            badge = "! FAILED"
         else:
-            cls, icon = "", "○"
-        html.append(f"<div class='agent-node {cls}'><div class='agent-icon'>{icon} {number}</div><div class='agent-name'>{name}</div><div class='agent-desc'>{desc}</div></div>")
+            cls = ""
+            badge = f"○ {number}"
+        html.append(f"""
+        <div class='agent-node {cls}'>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class='agent-icon'>{emoji}</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; opacity:0.85;">{badge}</span>
+            </div>
+            <div>
+                <div class='agent-name'>{name}</div>
+                <div class='agent-desc'>{desc}</div>
+            </div>
+        </div>
+        """)
     html.append("</div>")
     return "".join(html)
 
 
 def format_analysis(analysis: Any) -> str:
     if not analysis:
-        return "<div class='empty-state'>Analysis will appear here as the Analyzer agent inspects the failure.</div>"
+        return "<div class='empty-state' style='padding:24px; color:var(--text-muted); font-family:\"JetBrains Mono\",monospace;'>○ Awaiting Analyzer agent diagnosis... Click 'Run Debugger' to inspect defects.</div>"
     if isinstance(analysis, dict):
-        rows = "".join(f"<p><b>{str(k).replace('_', ' ').upper()}</b><br>{v}</p>" for k, v in analysis.items())
-        return f"<div class='result-panel'>{rows}</div>"
+        fn = analysis.get("function", "module")
+        file_name = analysis.get("file", "unknown")
+        lines = f"{analysis.get('line_start', '?')} - {analysis.get('line_end', '?')}"
+        root_cause = analysis.get("root_cause", "Defect identified in source code.")
+
+        return f"""
+        <div class="result-card-grid">
+            <div class="result-stat-box">
+                <div class="stat-box-label">🎯 Targeted Function</div>
+                <div class="stat-box-value"><code>{fn}</code></div>
+            </div>
+            <div class="result-stat-box">
+                <div class="stat-box-label">📁 File Path</div>
+                <div class="stat-box-value"><code>{file_name}</code></div>
+            </div>
+            <div class="result-stat-box">
+                <div class="stat-box-label">📍 Line Coordinates</div>
+                <div class="stat-box-value"><code>Lines {lines}</code></div>
+            </div>
+        </div>
+        <div class="diagnosis-box">
+            <div class="stat-box-label" style="color:var(--primary); margin-bottom:8px;">🔍 Root Cause Diagnosis</div>
+            <div style="font-size:14px; line-height:1.65; color:var(--text-primary);">{root_cause}</div>
+        </div>
+        """
     return f"<div class='result-panel'>{analysis}</div>"
+
 
 
 def format_pr_display(pr_url: Any) -> str:
@@ -394,16 +888,54 @@ def run_debugger(
 with gr.Blocks(title="DebugFlow AI") as demo:
     workspace = gr.State("")
     with gr.Row(elem_id="topbar"):
-        gr.HTML("<div class='brand'><span class='brand-mark'>DF</span> DebugFlow AI</div>")
-        gr.HTML("<div class='nav-meta'><span class='ready-dot'>●</span> SYSTEM READY &nbsp; / &nbsp; MULTI-AGENT DEBUGGER</div>")
+        gr.HTML("""
+        <div class='brand'>
+            <span class='brand-mark'>⚡</span>
+            <span>DebugFlow<span style="color:var(--primary); font-weight:800;">.ai</span></span>
+        </div>
+        """)
+        gr.HTML("""
+        <div class='nav-meta'>
+            <div class='system-badge'>
+                <div class='pulse-dot'></div>
+                <span>SWARM ONLINE</span>
+            </div>
+            <span>LANGGRAPH · TREE-SITTER</span>
+        </div>
+        """)
         theme_switch = gr.Button("LIGHT MODE", elem_classes="theme-toggle", scale=0)
-    gr.HTML("<section class='hero'><div class='hero-copy'><div class='eyebrow'>MULTI-AGENT CODE INTELLIGENCE</div><h1>Debug code.<br><span>Automatically.</span></h1><p>Analyze failures, generate reproduction tests, propose a fix, and verify the result before it reaches review.</p></div><div class='agent-visual' aria-label='Animated AI agent visualization'><div class='agent-ring'></div><div class='agent-ring two'></div><div class='agent-halo'></div><div class='agent-face'></div><div class='agent-core-label'>NEURAL CORE · ONLINE</div></div></section>")
+
+    gr.HTML("""
+    <section class='hero'>
+        <div class='hero-copy'>
+            <div class='section-kicker'>⚡ AUTONOMOUS MULTI-AGENT INTELLIGENCE</div>
+            <h1>Debug code.<br><span class='hero-gradient'>Zero friction.</span></h1>
+            <p>An orchestrated swarm of specialized AI agents that parses syntax trees, isolates defects, generates reproducing pytest suites, applies minimal repairs, and delivers verified PR patches.</p>
+            <div class='hero-badges'>
+                <div class='hero-chip'><span>🔍</span> Tree-sitter AST</div>
+                <div class='hero-chip'><span>🧪</span> Automated Reproduction</div>
+                <div class='hero-chip'><span>⚡</span> Isolated Verification</div>
+                <div class='hero-chip'><span>🚀</span> 1-Click PR / Patch</div>
+            </div>
+        </div>
+        <div class='agent-visual' aria-label='Animated AI agent core'>
+            <div class='agent-core-glow'></div>
+            <div class='orbital-ring ring-1'></div>
+            <div class='orbital-ring ring-2'></div>
+            <div class='agent-orb'>
+                <div class='agent-orb-inner'>
+                    <div class='agent-orb-icon'>⚡</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    """)
     with gr.Row(elem_classes="hero-actions"):
-        demo_button = gr.Button("Load Demo Bug", elem_classes="secondary-button", scale=0)
-        jump_button = gr.Button("View Pipeline ↓", elem_classes="secondary-button", scale=0)
+        demo_button = gr.Button("✨ Load Demo Bug", elem_classes="secondary-button", scale=0)
+        jump_button = gr.Button("Explore Swarm Pipeline ↓", elem_classes="secondary-button", scale=0)
 
     with gr.Column(elem_classes="section"):
-        gr.HTML("<div class='section-heading'><div><div class='section-kicker'>01 / INPUT</div><h2>Give the agents the failure context.</h2></div><p>Source stays local until the graph needs it.</p></div>")
+        gr.HTML("<div class='section-heading'><div><div class='section-kicker'>01 / INGESTION</div><h2>Provide the defect context</h2></div><p>Source code remains isolated in an ephemeral sandbox.</p></div>")
         with gr.Tabs():
             with gr.Tab("Paste Code"):
                 with gr.Row():
@@ -432,11 +964,22 @@ with gr.Blocks(title="DebugFlow AI") as demo:
         run_status = gr.HTML("<div class='status-strip'>READY TO DEBUG · Paste code, upload a project, or connect a repository.</div>")
 
     with gr.Column(elem_classes="section"):
-        gr.HTML("<div class='section-heading'><div><div class='section-kicker'>02 / ORCHESTRATION</div><h2>Agent pipeline</h2></div><p>One graph. Multiple specialists. A verified outcome.</p></div>")
+        gr.HTML("<div class='section-heading'><div><div class='section-kicker'>02 / ORCHESTRATION</div><h2>Agent pipeline swarm</h2></div><p>Cyclical LangGraph state machine with automatic isolated verification.</p></div>")
         pipeline = gr.HTML(pipeline_html({}))
         with gr.Row():
-            log_output = gr.Textbox(label="LIVE AGENT ACTIVITY", value="[system] Awaiting a debugging run...", lines=10, interactive=False, elem_classes=["terminal", "log-wrap"], scale=2)
-            retry_hint = gr.Markdown("**ATTEMPTS**\n\n`0 / 3`\n\nVerification failures route back to the Analyzer for another attempt.", elem_classes="glass-panel")
+            with gr.Column(scale=3):
+                gr.HTML("""
+                <div class='terminal-header'>
+                    <div class='mac-dot dot-red'></div>
+                    <div class='mac-dot dot-yellow'></div>
+                    <div class='mac-dot dot-green'></div>
+                    <div class='terminal-title'>debugflow-agent-swarm.log · live trace</div>
+                </div>
+                """)
+                log_output = gr.Textbox(label="LIVE AGENT ACTIVITY", value="[system] Awaiting a debugging run...", lines=10, interactive=False, elem_classes=["terminal", "log-wrap"], show_label=False)
+            with gr.Column(scale=1):
+                retry_hint = gr.Markdown("**DEBUG BUDGET**\n\n`Max 3 Attempts`\n\nIf verification tests fail, the runtime feeds the pytest failure trace back into the Analyzer to re-evaluate the diagnosis.", elem_classes="glass-panel")
+
 
     with gr.Column(elem_classes="section"):
         gr.HTML("<div class='section-heading'><div><div class='section-kicker'>03 / RESULTS</div><h2>Evidence, not guesses.</h2></div><p>Every artifact stays visible for review.</p></div>")
