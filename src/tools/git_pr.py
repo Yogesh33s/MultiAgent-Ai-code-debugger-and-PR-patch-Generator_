@@ -52,7 +52,8 @@ def open_pr(state: DebugState) -> str:
         str: GitHub PR URL (e.g. 'https://github.com/.../pull/1') or
              local patch path ('output/fix.patch').
     """
-    token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+    token = state.get("github_token") or os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+
     repo_name = os.getenv("GITHUB_REPO")
     if not repo_name and state.get("repo_url"):
         from urllib.parse import urlparse

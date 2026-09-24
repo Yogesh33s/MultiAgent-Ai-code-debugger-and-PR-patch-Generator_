@@ -244,7 +244,7 @@ def format_pr_display(pr_url: Any) -> str:
     url_str = str(pr_url).strip()
     if url_str.startswith("http://") or url_str.startswith("https://"):
         return f"### 🎉 Pull Request Created!\n\n**PR Link:** [{url_str}]({url_str})\n\nBranch committed and ready for peer review on GitHub."
-    return f"### 📁 Local Patch File Created!\n\n**Patch File:** `{url_str}`\n\nRun `git apply {url_str}` in your terminal to apply this fix locally."
+    return f"### 📁 Patch File Ready for Review!\n\n**Patch File:** `{url_str}`\n\nClick the download link below to download `fix.patch` directly to your computer, then apply it in your repository:\n```bash\ngit apply ~/Downloads/fix.patch\n```\n*(Or run `git apply output/fix.patch` if running locally in this repository)*"
 
 
 def run_debugger(
@@ -257,14 +257,16 @@ def run_debugger(
     branch: str,
     workspace: str | None,
     repo_target_file: str | None,
+    github_token: str | None = None,
 ) -> Iterator[tuple[Any, ...]]:
     repo_link = (repo_url or "").strip()
     active_file = repo_target_file if repo_link else (target_file if uploaded else file_path)
+    no_patch = gr.update(visible=False)
 
     # 1. If GitHub URL is provided, clone and scan repository
     if repo_link:
         if not is_valid_github_url(repo_link):
-            yield "<div class='fail-state'>! INVALID GITHUB URL</div>", pipeline_html({}, ""), "[system] Use a valid public https://github.com/owner/repository URL.", format_analysis(None), "", "", "", "", ""
+            yield "<div class='fail-state'>! INVALID GITHUB URL</div>", pipeline_html({}, ""), "[system] Use a valid public https://github.com/owner/repository URL.", format_analysis(None), "", "", "", "", "", no_patch
             return
         try:
             if not workspace or not os.path.exists(workspace):
@@ -275,7 +277,7 @@ def run_debugger(
             source_code = payload["source_code"]
             error_log = payload["error_log"]
         except Exception as exc:
-            yield f"<div class='fail-state'>! REPOSITORY SCAN ERROR: {exc}</div>", pipeline_html({}, ""), f"[system] Failed to clone/scan repository: {exc}", format_analysis(None), "", "", "", "", ""
+            yield f"<div class='fail-state'>! REPOSITORY SCAN ERROR: {exc}</div>", pipeline_html({}, ""), f"[system] Failed to clone/scan repository: {exc}", format_analysis(None), "", "", "", "", "", no_patch
             return
 
     # 2. If uploaded project is provided, extract and scan ZIP
@@ -289,16 +291,17 @@ def run_debugger(
             source_code = payload["source_code"]
             error_log = payload["error_log"]
         except Exception as exc:
-            yield f"<div class='fail-state'>! ZIP EXTRACTION ERROR: {exc}</div>", pipeline_html({}, ""), f"[system] Failed to extract ZIP: {exc}", format_analysis(None), "", "", "", "", ""
+            yield f"<div class='fail-state'>! ZIP EXTRACTION ERROR: {exc}</div>", pipeline_html({}, ""), f"[system] Failed to extract ZIP: {exc}", format_analysis(None), "", "", "", "", "", no_patch
             return
 
     if not source_code.strip():
-        yield "<div class='fail-state'>! ADD SOURCE CODE BEFORE RUNNING</div>", pipeline_html({}, ""), "[system] Paste code, upload a project (.zip), or enter a GitHub repository URL.", format_analysis(None), "", "", "", "", ""
+        yield "<div class='fail-state'>! ADD SOURCE CODE BEFORE RUNNING</div>", pipeline_html({}, ""), "[system] Paste code, upload a project (.zip), or enter a GitHub repository URL.", format_analysis(None), "", "", "", "", "", no_patch
         return
 
     state: dict[str, Any] = {
         "repo_url": repo_link,
         "repo_path": workspace or "",
+        "github_token": (github_token or "").strip(),
         "error_log": error_log or f"Automated defect inspection for {active_file}",
         "source_code": source_code,
         "file_path": active_file,
@@ -311,7 +314,7 @@ def run_debugger(
         f"[scanner] Loaded target file: {active_file}" + (f" from {repo_link}" if repo_link else ""),
         "[system] Streaming graph events through Analyzer -> Test Generator -> Fixer -> Verify..."
     ]
-    yield "<div class='status-strip'>◉ DEBUGGING... agents are coordinating</div>", pipeline_html(state, "analyzer"), "\n".join(log_lines), format_analysis(None), "", "", "", "", ""
+    yield "<div class='status-strip'>◉ DEBUGGING... agents are coordinating</div>", pipeline_html(state, "analyzer"), "\n".join(log_lines), format_analysis(None), "", "", "", "", "", no_patch
     try:
         for event in build_graph().stream(state):
             if isinstance(event, dict):
@@ -340,6 +343,8 @@ def run_debugger(
                             log_lines.append(f"[pr] Exported PR/Patch: {node_output.get('pr_url')}")
 
             active = "pull" if state.get("pr_url") else ("verify" if state.get("test_output") else ("fixer" if state.get("patch_diff") else ("test" if state.get("generated_tests") else "analyzer")))
+            patch_file_avail = os.path.exists("output/fix.patch") and bool(state.get("patch_diff"))
+            patch_update = gr.update(value="output/fix.patch", visible=True) if patch_file_avail else no_patch
             yield (
                 "<div class='status-strip'>◉ DEBUGGING... live update received</div>",
                 pipeline_html(state, active),
@@ -350,10 +355,13 @@ def run_debugger(
                 state.get("patch_diff", "") or "",
                 state.get("test_output", "") or "",
                 format_pr_display(state.get("pr_url")),
+                patch_update,
             )
 
         passed = state.get("test_passed") is True
         final = "<div class='success-state'>✓ FIX VERIFIED · READY FOR REVIEW</div>" if passed else "<div class='fail-state'>! DEBUGGING STOPPED · MAXIMUM ATTEMPTS REACHED</div>"
+        patch_file_avail = os.path.exists("output/fix.patch") and bool(state.get("patch_diff"))
+        patch_update = gr.update(value="output/fix.patch", visible=True) if patch_file_avail else no_patch
         yield (
             final,
             pipeline_html(state, "pull" if passed else ""),
@@ -364,6 +372,7 @@ def run_debugger(
             state.get("patch_diff", "") or "",
             state.get("test_output", "") or "",
             format_pr_display(state.get("pr_url")),
+            patch_update,
         )
     except Exception as exc:
         details = f"[error] {type(exc).__name__}: {exc}"
@@ -377,7 +386,9 @@ def run_debugger(
             state.get("patch_diff", "") or "",
             state.get("test_output", "") or "",
             format_pr_display(state.get("pr_url")),
+            no_patch,
         )
+
 
 
 with gr.Blocks(title="DebugFlow AI") as demo:
@@ -411,11 +422,13 @@ with gr.Blocks(title="DebugFlow AI") as demo:
                     repo_input = gr.Textbox(label="GitHub repository URL", placeholder="https://github.com/user/repository", scale=3)
                     branch_input = gr.Textbox(label="Branch", value="main", scale=1)
                     fetch_repo_btn = gr.Button("⚡ Fetch & Scan Repo", elem_classes="secondary-button", scale=1)
+                with gr.Row():
+                    github_token_input = gr.Textbox(label="GitHub Personal Access Token (Optional - to automatically open PR on GitHub)", placeholder="ghp_... (Leave blank to generate a downloadable patch)", type="password", scale=3)
                 repo_status = gr.Markdown("Enter a public GitHub repository link (e.g. `https://github.com/owner/repo`) and click 'Fetch & Scan Repo'.")
                 repo_target_file = gr.Dropdown(label="Discovered Repository Python Files", choices=[], allow_custom_value=False, visible=False)
         with gr.Row():
             run_button = gr.Button("▶  RUN DEBUGGER", elem_classes="primary-button", variant="primary", scale=2)
-            clear_button = gr.ClearButton(value="Clear", components=[source_input, error_input, repo_input], elem_classes="secondary-button", scale=0)
+            clear_button = gr.ClearButton(value="Clear", components=[source_input, error_input, repo_input, github_token_input], elem_classes="secondary-button", scale=0)
         run_status = gr.HTML("<div class='status-strip'>READY TO DEBUG · Paste code, upload a project, or connect a repository.</div>")
 
     with gr.Column(elem_classes="section"):
@@ -439,7 +452,8 @@ with gr.Blocks(title="DebugFlow AI") as demo:
             with gr.Tab("Verification"):
                 verification_output = gr.Textbox(label="Verification output", lines=10, interactive=False, elem_classes="terminal")
             with gr.Tab("Pull Request"):
-                pr_output = gr.Markdown("The Pull Request link will appear here when the backend creates one.")
+                pr_output = gr.Markdown("The Pull Request link or local patch path will appear here when created.")
+                download_patch = gr.File(label="📥 Download fix.patch", interactive=False, visible=False)
     with gr.Column(elem_classes="section"):
         gr.HTML("<div class='about-panel'><div><div class='section-kicker'>ABOUT DEBUGFLOW</div><h3>Autonomous debugging, with evidence at every step.</h3><p>DebugFlow AI coordinates specialized agents to inspect a failure, generate a reproduction, propose a patch, and verify the result before review. The interface keeps the reasoning trail, code artifacts, and verification output visible for a fast, trustworthy developer workflow.</p></div><ul class='about-list'><li>ANALYZE · locate the root cause</li><li>TEST · reproduce the failure</li><li>FIX · generate a reviewable patch</li><li>VERIFY · confirm the behavior</li></ul></div>")
     gr.HTML("<div class='rights-line'>DEBUGFLOW AI · AUTONOMOUS DEBUGGING FOR REAL-WORLD CODE · ALL RIGHTS RESERVED TO TEAMZEROIQ</div>")
@@ -451,8 +465,8 @@ with gr.Blocks(title="DebugFlow AI") as demo:
     repo_target_file.change(load_selected_file, inputs=[repo_target_file, workspace], outputs=[file_input, source_input])
     run_button.click(
         run_debugger,
-        inputs=[file_input, source_input, error_input, upload, target_file, repo_input, branch_input, workspace, repo_target_file],
-        outputs=[run_status, pipeline, log_output, analysis_output, tests_output, fixed_output, patch_output, verification_output, pr_output]
+        inputs=[file_input, source_input, error_input, upload, target_file, repo_input, branch_input, workspace, repo_target_file, github_token_input],
+        outputs=[run_status, pipeline, log_output, analysis_output, tests_output, fixed_output, patch_output, verification_output, pr_output, download_patch]
     )
 
 
