@@ -1,10 +1,12 @@
 import os
+import sys
 import subprocess
 import tempfile
 
 
 def run_tests(state) -> tuple[bool, str]:
-    source_code = state.get("source_code", "")
+    # Test fixed_code if Fixer has produced a repair, otherwise original source_code
+    source_code = state.get("fixed_code") or state.get("source_code", "")
     generated_tests = state.get("generated_tests", "")
     file_path = state.get("file_path", "solution.py")
 
@@ -21,7 +23,7 @@ def run_tests(state) -> tuple[bool, str]:
 
         try:
             result = subprocess.run(
-                ["pytest", "-q"],
+                [sys.executable, "-m", "pytest", "-q"],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
