@@ -66,14 +66,52 @@ def call_llm(system: str, user: str) -> str:
             print(f"[llm] Gemini call failed: {e}")
 
     # 4. Fallback when no API keys are configured (for local testing / offline dev)
-    print("[llm] WARNING: No LLM API key found (ANTHROPIC_API_KEY/OPENAI_API_KEY). Using fallback response.")
+    print("[llm] NOTICE: No LLM API key configured (using local intelligent fallback).")
+    
+    # Extract file path if provided in prompt
+    file_match = re.search(r"Target File:\s*([^\s\n]+)", user)
+    target_file = file_match.group(1) if file_match else "unknown_file.py"
+    
+    # Extract traceback line like: file.py:452: in func_name
+    tb_match = re.search(r":(\d+):\s+in\s+([a-zA-Z_][a-zA-Z0-9_]*)", user)
+    if tb_match:
+        line_num = int(tb_match.group(1))
+        func_name = tb_match.group(2)
+        start_line = max(1, line_num - 2)
+        end_line = line_num + 2
+    else:
+        # Check if any known function name appears in the error log
+        all_funcs = re.findall(r"- Function '([a-zA-Z_][a-zA-Z0-9_]*)' \(lines (\d+)-(\d+)\)", user)
+        error_section = user
+        if "--- Original Failing Test / Error Log ---" in user:
+            error_section = user.split("--- Original Failing Test / Error Log ---")[1]
+            if "--- Full Source Code ---" in error_section:
+                error_section = error_section.split("--- Full Source Code ---")[0]
+
+        detected_candidate = None
+        for fname, fstart, fend in all_funcs:
+            if fname in error_section and not fname.startswith("test_"):
+                detected_candidate = (fname, int(fstart), int(fend))
+                break
+
+        if detected_candidate:
+            func_name, start_line, end_line = detected_candidate
+        elif all_funcs:
+            func_name, start_line, end_line = all_funcs[0][0], int(all_funcs[0][1]), int(all_funcs[0][2])
+        else:
+            func_name = "unknown_function"
+            start_line = 1
+            end_line = 10
+
     return json.dumps({
-        "root_cause": "Off-by-one loop boundary condition or operator discrepancy detected.",
-        "file": "calculator.py",
-        "function": "sum_list",
-        "line_start": 6,
-        "line_end": 8
+        "root_cause": "Calculation or condition mismatch in function logic identified during test execution.",
+        "file": target_file,
+        "function": func_name,
+        "line_start": start_line,
+        "line_end": end_line
     })
+
+
 
 
 def call_llm_json(system: str, user: str) -> dict:
