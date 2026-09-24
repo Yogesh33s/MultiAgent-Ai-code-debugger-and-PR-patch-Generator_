@@ -64,9 +64,11 @@ def open_pr(state: DebugState) -> str:
     patch_diff = state.get("patch_diff", "")
     analysis = state.get("analysis", {})
 
-    # If no GitHub token or repository target is set, use local patch fallback
-    if not token or not repo_name:
+    # If no GitHub token, repository target, or verification explicitly failed, use local patch fallback
+    if not token or not repo_name or state.get("test_passed") is False:
         return _save_local_patch(patch_diff, fixed_code, file_path)
+
+
 
     try:
         from github import Github

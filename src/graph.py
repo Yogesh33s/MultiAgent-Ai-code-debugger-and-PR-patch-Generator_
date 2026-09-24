@@ -17,11 +17,12 @@ def pr_node(state: DebugState) -> dict:
     return {"pr_url": open_pr(state)}
 
 def route_after_verify(state: DebugState) -> str:
-    if state["test_passed"]:
+    if state.get("test_passed"):
         return "open_pr"
-    if state["attempts"] >= state.get("max_attempts", 3):
-        return "give_up"
+    if state.get("attempts", 0) >= state.get("max_attempts", 3):
+        return "open_pr" if state.get("patch_diff") else "give_up"
     return "analyzer"          # fallback to step 1
+
 
 def build_graph():
     g = StateGraph(DebugState)

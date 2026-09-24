@@ -95,16 +95,37 @@ def run(state: DebugState) -> dict:
     system_prompt = _load_prompt()
 
     # 2. Call LLM to generate the full corrected code
+    raw_fixed_code = None
     try:
         result = call_llm_json(system_prompt, user_prompt)
+        if isinstance(result, dict):
+            for k in ["fixed_code", "code", "fixed", "solution", "python", "repaired_code"]:
+                if result.get(k) and str(result[k]).strip():
+                    raw_fixed_code = str(result[k])
+                    break
     except Exception as e:
-        raise RuntimeError(f"Fixer LLM call failed: {e}")
+        print(f"[fixer] JSON parsing failed: {e}. Attempting direct code extraction fallback...")
 
-    raw_fixed_code = result.get("fixed_code")
+    if not raw_fixed_code:
+        # Fallback: call LLM directly asking for pure Python code
+        try:
+            from src.llm import call_llm
+            raw_text = call_llm(
+                "You are an expert automated code repair AI agent. "
+                "Output ONLY the complete corrected Python source code. No explanations, no markdown.",
+                user_prompt
+            )
+            cleaned = _clean_code_fences(raw_text)
+            if any(kw in cleaned for kw in ["def ", "class ", "import ", "return "]):
+                raw_fixed_code = cleaned
+        except Exception as e:
+            raise RuntimeError(f"Fixer LLM call failed: {e}")
+
     if not raw_fixed_code or not str(raw_fixed_code).strip():
-        raise ValueError(f"Fixer received invalid LLM response: missing or empty 'fixed_code' in {result}")
+        raise ValueError("Fixer received invalid LLM response: missing or empty corrected code.")
 
     fixed_code = _clean_code_fences(str(raw_fixed_code))
+
 
     # 3. Compute unified diff using difflib
     orig_lines = source_code.splitlines(keepends=True)
