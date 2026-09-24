@@ -256,3 +256,30 @@ def test_analyzer_llm_failure_raises_clear_runtime_error():
     with patch("src.agents.analyzer.call_llm_json", side_effect=Exception("API connection timeout")):
         with pytest.raises(RuntimeError, match="Analyzer LLM call failed"):
             analyzer.run(state)
+
+
+def test_analyzer_empty_function_name_recovers_from_traceback():
+    """Verify analyzer recovers gracefully when LLM returns empty or null function name."""
+    source = "def compute(a):\n    return a * 2\n"
+    state: DebugState = {
+        "file_path": "compute.py",
+        "source_code": source,
+        "error_log": "AssertionError in compute: expected 10 got 8",
+        "logs": [],
+    }
+
+    mock_llm_response = {
+        "root_cause": "Calculation mismatch in double logic.",
+        "file": "compute.py",
+        "function": "",  # Empty function returned by LLM
+        "line_start": 1,
+        "line_end": 2,
+    }
+
+    with patch("src.agents.analyzer.call_llm_json", return_value=mock_llm_response):
+        result = analyzer.run(state)
+
+    assert result["analysis"]["function"] == "compute"
+    assert result["analysis"]["line_start"] == 1
+    assert result["analysis"]["line_end"] == 2
+

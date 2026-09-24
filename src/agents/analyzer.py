@@ -159,24 +159,33 @@ def run(state: DebugState) -> dict:
     if not root_cause:
         raise ValueError("Analyzer received invalid LLM response: 'root_cause' cannot be empty.")
 
-    reported_func = str(raw_analysis["function"]).strip()
-    if not reported_func:
-        raise ValueError("Analyzer received invalid LLM response: 'function' cannot be empty.")
+    reported_func = str(raw_analysis.get("function") or "").strip()
+    if not reported_func or reported_func.lower() in ("none", "null", "unknown", "n/a", "undefined"):
+        # Auto-recover function name from candidate traceback or AST
+        if candidate_funcs:
+            reported_func = candidate_funcs[0]
+            new_logs.append(f"Analyzer: inferred function '{reported_func}' from error log traceback")
+        elif func_names:
+            reported_func = func_names[0]
+            new_logs.append(f"Analyzer: inferred function '{reported_func}' from parsed code")
+        else:
+            reported_func = "module"
 
     # Normalize numeric line coordinates
     try:
-        line_start = int(raw_analysis["line_start"])
-        line_end = int(raw_analysis["line_end"])
-    except (ValueError, TypeError) as e:
-        raise ValueError(f"Analyzer received invalid non-integer line numbers from LLM: {e}")
+        line_start = int(raw_analysis.get("line_start", 1))
+        line_end = int(raw_analysis.get("line_end", len(lines)))
+    except (ValueError, TypeError):
+        line_start = 1
+        line_end = len(lines)
 
     if line_start < 1:
         line_start = 1
     if line_end < line_start:
-        raise ValueError(f"Analyzer received invalid line range: line_end ({line_end}) < line_start ({line_start})")
+        line_end = line_start
 
     # 9. Verify function boundaries against Tree-sitter AST
-    # LLM identifies the root cause and function, Tree-sitter provides authoritative boundaries
+    # LLM identifies the root cause, Tree-sitter provides authoritative boundaries
     matched_fn = extract_function(source_code, reported_func)
     if matched_fn:
         # Snap to Tree-sitter verified lines for the detected function
