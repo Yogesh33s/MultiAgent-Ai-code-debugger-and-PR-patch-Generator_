@@ -36,8 +36,9 @@ def _save_local_patch(patch_diff: str, fixed_code: str, file_path: str) -> str:
         with open(fixed_file_path, "w", encoding="utf-8") as f:
             f.write(fixed_code)
 
-    print(f"[git_pr] Local fallback: saved patch to {patch_file_path}")
-    return patch_file_path
+    portable_patch_path = patch_file_path.replace(os.sep, "/")
+    print(f"[git_pr] Local fallback: saved patch to {portable_patch_path}")
+    return portable_patch_path
 
 
 def open_pr(state: DebugState) -> str:
