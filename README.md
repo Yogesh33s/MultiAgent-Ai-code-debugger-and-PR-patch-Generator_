@@ -152,21 +152,29 @@ Open your browser at **`http://127.0.0.1:7860`**.
 
 ---
 
-## 🖥️ Web Interface Features
+## 🖥️ Professional Developer Interface
 
-- **Ingestion Modes**:
-  - **Paste Code**: Direct code and traceback pasting with instant demo loader.
+DebugFlow AI features a clean, high-performance UI inspired by modern developer platforms like Linear, Vercel, and Cursor:
+
+- **🌓 Instant Light & Dark Mode**:
+  - Full support for both dark and light modes with instant switching and persistent `localStorage` preference memory.
+  - High-contrast, accessibility-tested typography and card borders in both themes.
+- **⚡ Live Swarm Telemetry & Architecture**:
+  - Real-time telemetry dashboard monitoring the 5 coordinated agents (`Analyzer` → `Test Generator` → `Fixer` → `Verifier` → `Dispatcher`).
+  - Active retry budget countdown (3 loop cycles) and 100% sandbox isolation telemetry.
+- **💻 macOS-Style Developer Console**:
+  - High-contrast live activity log with window controls (traffic light dots), timestamped events, and JetBrains Mono monospace formatting.
+- **📥 Ingestion Modes**:
+  - **Paste Code**: Direct code and traceback pasting with instant demo loader (`✨ Load Demo Bug`).
   - **Upload Project**: Upload `.zip` or `.py` archives; automatically unpacks and auto-detects failing tests.
   - **GitHub Repository**: Enter any public repository URL (`https://github.com/owner/repo`) and branch; auto-discovers files and test suites.
-- **Animated Orchestration Grid**: Visual nodes track the active agent (`ANALYZER` → `TEST GENERATOR` → `FIXER` → `VERIFY` → `PULL REQUEST`) with live state badges and pulse animations.
-- **macOS-Style Live Terminal**: Real-time agent activity stream with glowing telemetry.
-- **Results Explorer**:
+- **📊 Verified Repair Artifacts**:
   - **Analysis Tab**: Structured cards displaying targeted function, file coordinates, and root cause diagnosis.
   - **Generated Tests Tab**: Runnable pytest code synthesized by the agents.
-  - **Fixed Code Tab**: Syntax-highlighted, complete corrected source code.
-  - **Patch Tab**: Standard unified diff (`--- a/file` / `+++ b/file`).
-  - **Verification Tab**: Execution log and pass/fail summary from pytest.
-  - **Pull Request Tab**: Clickable GitHub PR link or an **in-browser 1-click Download button** for `fix.patch`.
+  - **Fixed Code Tab**: Complete corrected Python source code.
+  - **Patch Tab**: Standard unified git diff format (`--- a/file` / `+++ b/file`).
+  - **Verification Tab**: Execution log and pass/fail summary from isolated pytest.
+  - **Pull Request Tab**: Clickable GitHub PR link or an **in-browser 1-click Download button** for `fix.patch` with `git apply` instructions.
 
 ---
 
