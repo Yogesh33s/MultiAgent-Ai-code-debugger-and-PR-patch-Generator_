@@ -1,5 +1,7 @@
 import os, json, time
+from dotenv import load_dotenv
 from openai import OpenAI   # pip install openai  (works for ALL providers below)
+load_dotenv()
 
 # Order = priority. Providers with no key in .env are skipped automatically.
 # Model names change over time, so check each provider's model list if one errors.
