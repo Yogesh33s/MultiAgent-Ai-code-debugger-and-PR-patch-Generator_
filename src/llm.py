@@ -1,91 +1,59 @@
-import os
-import json
-import re
+import os, json, time
+from openai import OpenAI   # pip install openai  (works for ALL providers below)
 
+# Order = priority. Providers with no key in .env are skipped automatically.
+# Model names change over time, so check each provider's model list if one errors.
+PROVIDERS = [
+    {"name": "groq",
+    "base_url": "https://api.groq.com/openai/v1",
+    "key_env": "GROQ_API_KEY",
+    "model": "openai/gpt-oss-120b"},
+    {"name": "gemini",
+     "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+     "key_env": "GEMINI_API_KEY",
+     "model": "gemini-2.5-flash"},
+    {"name": "openrouter",
+     "base_url": "https://openrouter.ai/api/v1",
+     "key_env": "OPENROUTER_API_KEY",
+     "model": "meta-llama/llama-3.3-70b-instruct:free"},
+    {"name": "ollama",                       # local, no key needed
+     "base_url": "http://localhost:11434/v1",
+     "key_env": None,
+     "model": "qwen2.5-coder:7b"},
+]
 
-def _clean_json_string(text: str) -> str:
-    """Strip markdown code fence blocks from text to extract raw JSON."""
-    text = text.strip()
-    # Match ```json ... ``` or ``` ... ```
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"\s*```$", "", text)
-    return text.strip()
+def _available():
+    for p in PROVIDERS:
+        if p["key_env"] is None:
+            # only use ollama if you explicitly enable it
+            if os.getenv("USE_OLLAMA") == "1":
+                yield p, "ollama"
+        elif os.getenv(p["key_env"]):
+            yield p, os.getenv(p["key_env"])
 
-
-def call_llm(system: str, user: str) -> str:
-    """
-    Shared LLM call helper. Supports Anthropic, OpenAI, or a fallback mock mode.
-    """
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
-    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-
-    # 1. Anthropic Claude (Primary default from spec)
-    if anthropic_key:
-        try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=anthropic_key)
-            model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
-            resp = client.messages.create(
-                model=model,
-                max_tokens=2000,
-                system=system,
-                messages=[{"role": "user", "content": user}],
-            )
-            return resp.content[0].text
-        except Exception as e:
-            print(f"[llm] Anthropic call failed: {e}")
-
-    # 2. OpenAI GPT
-    if openai_key:
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=openai_key)
-            model = os.getenv("OPENAI_MODEL", "gpt-4o")
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-            )
-            return resp.choices[0].message.content or ""
-        except Exception as e:
-            print(f"[llm] OpenAI call failed: {e}")
-
-    # 3. Google Gemini
-    if gemini_key:
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel("gemini-1.5-flash", system_instruction=system)
-            resp = model.generate_content(user)
-            return resp.text
-        except Exception as e:
-            print(f"[llm] Gemini call failed: {e}")
-
-    # Fail clearly if no LLM provider is configured
-    raise RuntimeError(
-        "No LLM API key configured or all LLM provider calls failed. "
-        "Please set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY in your environment or .env file."
-    )
-
-
-
+def call_llm(system: str, user: str, retries: int = 2) -> str:
+    last_err = None
+    for provider, key in _available():
+        client = OpenAI(base_url=provider["base_url"], api_key=key)
+        for attempt in range(retries):
+            try:
+                resp = client.chat.completions.create(
+                    model=provider["model"],
+                    messages=[{"role": "system", "content": system},
+                              {"role": "user", "content": user}],
+                    temperature=0.2,
+                )
+                return resp.choices[0].message.content
+            except Exception as e:          # rate limit, network, bad model name...
+                last_err = e
+                print(f"[llm] {provider['name']} failed: {e}")
+                time.sleep(2 * (attempt + 1))   # wait, retry, then next provider
+    raise RuntimeError(f"All LLM providers failed. Last error: {last_err}")
 
 def call_llm_json(system: str, user: str) -> dict:
-    """
-    Calls LLM and returns parsed JSON dictionary.
-    Handles markdown code fence stripping and JSON errors gracefully.
-    """
-    text = call_llm(system + "\nReturn ONLY valid JSON, no markdown.", user)
-    cleaned = _clean_json_string(text)
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError:
-        # Try to locate first '{' and last '}'
-        match = re.search(r"(\{.*\})", cleaned, re.DOTALL)
-        if match:
-            return json.loads(match.group(1))
-        raise ValueError(f"Failed to parse LLM response as JSON:\n{text}")
+    text = call_llm(system + "\nReturn ONLY valid JSON. No markdown, no explanation.", user)
+    # free models often add extra text, so grab just the {...} part
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1:
+        raise ValueError(f"No JSON found in: {text[:200]}")
+    return json.loads(text[start:end + 1])

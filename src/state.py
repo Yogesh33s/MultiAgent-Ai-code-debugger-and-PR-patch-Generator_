@@ -1,6 +1,5 @@
 from typing import TypedDict, List
 
-
 class DebugState(TypedDict, total=False):
     # ---- INPUT (set by UI) ----
     repo_path: str          # folder containing the broken project
@@ -17,7 +16,7 @@ class DebugState(TypedDict, total=False):
 
     # ---- FIXER writes ----
     fixed_code: str         # full corrected file content
-    patch_diff: str         # git-style diff
+    patch_diff: str         # git-style diff of the changes made to the file
 
     # ---- VERIFY writes ----
     test_passed: bool

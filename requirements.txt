@@ -6,3 +6,11 @@ anthropic>=0.20.0
 pytest>=8.0.0
 PyGithub>=2.2.0
 python-dotenv>=1.0.0
+langgraph
+gradio
+tree-sitter
+tree-sitter-python
+openai
+python-dotenv
+pytest
+PyGithub
