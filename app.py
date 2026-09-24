@@ -238,6 +238,15 @@ def format_analysis(analysis: Any) -> str:
     return f"<div class='result-panel'>{analysis}</div>"
 
 
+def format_pr_display(pr_url: Any) -> str:
+    if not pr_url:
+        return "The Pull Request link or local patch path will appear here once created."
+    url_str = str(pr_url).strip()
+    if url_str.startswith("http://") or url_str.startswith("https://"):
+        return f"### 🎉 Pull Request Created!\n\n**PR Link:** [{url_str}]({url_str})\n\nBranch committed and ready for peer review on GitHub."
+    return f"### 📁 Local Patch File Created!\n\n**Patch File:** `{url_str}`\n\nRun `git apply {url_str}` in your terminal to apply this fix locally."
+
+
 def run_debugger(
     file_path: str,
     source_code: str,
@@ -306,29 +315,69 @@ def run_debugger(
     try:
         for event in build_graph().stream(state):
             if isinstance(event, dict):
-                incoming = event.get("logs", [])
-                previous_logs = state.get("logs", [])
-                state.update(event)
-                if incoming:
-                    state["logs"] = previous_logs + [str(item) for item in incoming]
-                if incoming:
-                    log_lines.extend(str(item) for item in incoming[-3:])
-                elif event.get("analysis"):
-                    log_lines.append("[agent] Analyzer completed root cause analysis")
-                if event.get("generated_tests"):
-                    log_lines.append("[agent] Test Generator produced reproduction tests")
-                if event.get("patch_diff"):
-                    log_lines.append("[agent] Fixer generated a candidate patch")
-                if event.get("test_passed") is not None:
-                    log_lines.append("[verify] Verification passed" if event["test_passed"] else "[verify] Verification failed; retrying")
-            active = "verify" if state.get("test_output") else "fixer" if state.get("patch_diff") else "test" if state.get("generated_tests") else "analyzer"
-            yield "<div class='status-strip'>◉ DEBUGGING... live state received</div>", pipeline_html(state, active), "\n".join(log_lines[-80:]), format_analysis(state.get("analysis")), state.get("generated_tests", ""), state.get("fixed_code", ""), state.get("patch_diff", ""), state.get("test_output", ""), state.get("pr_url", "")
+                # LangGraph stream yields {node_name: node_output}
+                for node_name, node_output in event.items():
+                    if isinstance(node_output, dict):
+                        incoming_logs = node_output.get("logs", [])
+                        previous_logs = state.get("logs", [])
+                        state.update(node_output)
+
+                        if incoming_logs:
+                            state["logs"] = previous_logs + [str(item) for item in incoming_logs]
+                            log_lines.extend(str(item) for item in incoming_logs[-3:])
+
+                        if node_output.get("analysis"):
+                            func_name = node_output["analysis"].get("function", "unknown")
+                            log_lines.append(f"[agent] Analyzer identified root cause in '{func_name}'")
+                        if node_output.get("generated_tests"):
+                            log_lines.append("[agent] Test Generator synthesized reproduction tests")
+                        if node_output.get("patch_diff"):
+                            log_lines.append("[agent] Fixer generated unified patch diff")
+                        if node_output.get("test_passed") is not None:
+                            passed_flag = node_output["test_passed"]
+                            log_lines.append("[verify] Verification PASSED! ✨" if passed_flag else f"[verify] Verification failed (attempt #{node_output.get('attempts', 1)}); retrying")
+                        if node_output.get("pr_url"):
+                            log_lines.append(f"[pr] Exported PR/Patch: {node_output.get('pr_url')}")
+
+            active = "pull" if state.get("pr_url") else ("verify" if state.get("test_output") else ("fixer" if state.get("patch_diff") else ("test" if state.get("generated_tests") else "analyzer")))
+            yield (
+                "<div class='status-strip'>◉ DEBUGGING... live update received</div>",
+                pipeline_html(state, active),
+                "\n".join(log_lines[-80:]),
+                format_analysis(state.get("analysis")),
+                state.get("generated_tests", "") or "",
+                state.get("fixed_code", "") or "",
+                state.get("patch_diff", "") or "",
+                state.get("test_output", "") or "",
+                format_pr_display(state.get("pr_url")),
+            )
+
         passed = state.get("test_passed") is True
-        final = "<div class='success-state'>✓ FIX VERIFIED · READY FOR REVIEW</div>" if passed else "<div class='fail-state'>! DEBUGGING STOPPED · REVIEW PATCH AND LOGS</div>"
-        yield final, pipeline_html(state, ""), "\n".join(log_lines[-80:]), format_analysis(state.get("analysis")), state.get("generated_tests", ""), state.get("fixed_code", ""), state.get("patch_diff", ""), state.get("test_output", ""), state.get("pr_url", "")
+        final = "<div class='success-state'>✓ FIX VERIFIED · READY FOR REVIEW</div>" if passed else "<div class='fail-state'>! DEBUGGING STOPPED · MAXIMUM ATTEMPTS REACHED</div>"
+        yield (
+            final,
+            pipeline_html(state, "pull" if passed else ""),
+            "\n".join(log_lines[-80:]),
+            format_analysis(state.get("analysis")),
+            state.get("generated_tests", "") or "",
+            state.get("fixed_code", "") or "",
+            state.get("patch_diff", "") or "",
+            state.get("test_output", "") or "",
+            format_pr_display(state.get("pr_url")),
+        )
     except Exception as exc:
         details = f"[error] {type(exc).__name__}: {exc}"
-        yield "<div class='fail-state'>! SOMETHING WENT WRONG · SEE TECHNICAL DETAILS</div>", pipeline_html(state, ""), "\n".join(log_lines + [details]), format_analysis(state.get("analysis")), state.get("generated_tests", ""), state.get("fixed_code", ""), state.get("patch_diff", ""), state.get("test_output", ""), state.get("pr_url", "")
+        yield (
+            "<div class='fail-state'>! SOMETHING WENT WRONG · SEE TECHNICAL DETAILS</div>",
+            pipeline_html(state, ""),
+            "\n".join(log_lines + [details]),
+            format_analysis(state.get("analysis")),
+            state.get("generated_tests", "") or "",
+            state.get("fixed_code", "") or "",
+            state.get("patch_diff", "") or "",
+            state.get("test_output", "") or "",
+            format_pr_display(state.get("pr_url")),
+        )
 
 
 with gr.Blocks(title="DebugFlow AI") as demo:
