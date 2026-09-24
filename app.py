@@ -1214,13 +1214,16 @@ with gr.Blocks(title="DebugFlow AI") as demo:
 
 
 if __name__ == "__main__":
+    port = int(os.getenv("PORT", 7860))
+    share_live = os.getenv("SHARE", "true").lower() in ("true", "1", "yes")
     demo.launch(
-        server_name="127.0.0.1",
-        server_port=7860,
+        server_name="0.0.0.0",
+        server_port=port,
         show_error=False,
         theme=theme,
         css=CSS,
         js=THEME_INIT_JS,
         head=HEAD_HTML,
+        share=share_live,
         footer_links=[],
     )
