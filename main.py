@@ -119,6 +119,8 @@ def main():
     parser = argparse.ArgumentParser(description="Multi-Agent AI Code Debugger CLI")
     parser.add_argument("--file", "-f", type=str, default="demo_bugs/bug1_off_by_one/calculator.py",
                         help="Path to buggy source file")
+    parser.add_argument("--error", "-e", type=str, default=None,
+                        help="Error log or stack trace for the bug")
     parser.add_argument("--mock", action="store_true",
                         help="Run in offline mock mode without calling external LLM APIs")
     args = parser.parse_args()
@@ -139,7 +141,32 @@ def main():
         source = DEFAULT_BUGGY_CODE
         file_path = "calculator.py"
 
-    run_pipeline(source_code=source, error_log=DEFAULT_ERROR_LOG, file_path=file_path, mock=mock_mode)
+    error_log = args.error
+    if not error_log:
+        file_dir = os.path.dirname(args.file) if os.path.exists(args.file) else ""
+        if file_dir and os.path.isdir(file_dir):
+            test_files = [
+                os.path.join(file_dir, f)
+                for f in os.listdir(file_dir)
+                if f.startswith("test_") and f.endswith(".py")
+            ]
+            if test_files:
+                import subprocess
+                test_file = test_files[0]
+                print(f"🔍 Auto-running companion test suite: {test_file}...")
+                proc = subprocess.run(
+                    [sys.executable, "-m", "pytest", os.path.basename(test_file)],
+                    cwd=file_dir,
+                    capture_output=True,
+                    text=True,
+                )
+                error_log = (proc.stdout + proc.stderr).strip()
+                print(f"📋 Captured error log ({len(error_log.splitlines())} lines).\n")
+
+    if not error_log:
+        error_log = DEFAULT_ERROR_LOG
+
+    run_pipeline(source_code=source, error_log=error_log, file_path=file_path, mock=mock_mode)
 
 
 if __name__ == "__main__":
