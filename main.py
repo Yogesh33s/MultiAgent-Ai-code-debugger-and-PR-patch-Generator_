@@ -117,8 +117,14 @@ def run_pipeline(source_code: str, error_log: str, file_path: str = "calculator.
 
 def main():
     parser = argparse.ArgumentParser(description="Multi-Agent AI Code Debugger CLI")
-    parser.add_argument("--file", "-f", type=str, default="demo_bugs/bug1_off_by_one/calculator.py",
+    parser.add_argument("--file", "-f", type=str, default=None,
                         help="Path to buggy source file")
+    parser.add_argument("--repo", "-r", type=str, default=None,
+                        help="GitHub repository URL to clone and scan")
+    parser.add_argument("--branch", "-b", type=str, default="main",
+                        help="Branch name for GitHub repository")
+    parser.add_argument("--zip", "-z", type=str, default=None,
+                        help="Path to ZIP archive to extract and scan")
     parser.add_argument("--error", "-e", type=str, default=None,
                         help="Error log or stack trace for the bug")
     parser.add_argument("--mock", action="store_true",
@@ -133,35 +139,70 @@ def main():
         print("ℹ️  No LLM API keys found in environment or .env file.")
         print("ℹ️  Automatically enabling --mock mode for offline testing.\n")
 
-    if os.path.exists(args.file):
+    from src.tools.repo_loader import (
+        clone_or_download_repo,
+        safe_extract_zip,
+        prepare_analyzer_payload,
+    )
+
+    workspace = None
+    source = ""
+    file_path = "solution.py"
+    error_log = args.error
+
+    if args.repo:
+        print(f"📦 Cloning and scanning GitHub repository: {args.repo} (branch: {args.branch})...")
+        workspace, files = clone_or_download_repo(args.repo, args.branch)
+        payload = prepare_analyzer_payload(workspace, target_file=args.file, error_log=error_log)
+        file_path = payload["file_path"]
+        source = payload["source_code"]
+        error_log = payload["error_log"]
+        print(f"✓ Discovered {len(files)} Python files. Target: {file_path}\n")
+
+    elif args.zip:
+        print(f"📦 Extracting and scanning ZIP archive: {args.zip}...")
+        workspace, files = safe_extract_zip(args.zip)
+        payload = prepare_analyzer_payload(workspace, target_file=args.file, error_log=error_log)
+        file_path = payload["file_path"]
+        source = payload["source_code"]
+        error_log = payload["error_log"]
+        print(f"✓ Discovered {len(files)} Python files. Target: {file_path}\n")
+
+    elif args.file and os.path.exists(args.file):
         with open(args.file, "r", encoding="utf-8") as f:
             source = f.read()
         file_path = os.path.basename(args.file)
-    else:
-        source = DEFAULT_BUGGY_CODE
-        file_path = "calculator.py"
 
-    error_log = args.error
-    if not error_log:
-        file_dir = os.path.dirname(args.file) if os.path.exists(args.file) else ""
-        if file_dir and os.path.isdir(file_dir):
-            test_files = [
-                os.path.join(file_dir, f)
-                for f in os.listdir(file_dir)
-                if f.startswith("test_") and f.endswith(".py")
-            ]
-            if test_files:
-                import subprocess
-                test_file = test_files[0]
-                print(f"🔍 Auto-running companion test suite: {test_file}...")
-                proc = subprocess.run(
-                    [sys.executable, "-m", "pytest", os.path.basename(test_file)],
-                    cwd=file_dir,
-                    capture_output=True,
-                    text=True,
-                )
-                error_log = (proc.stdout + proc.stderr).strip()
-                print(f"📋 Captured error log ({len(error_log.splitlines())} lines).\n")
+        if not error_log:
+            file_dir = os.path.dirname(args.file)
+            if file_dir and os.path.isdir(file_dir):
+                test_files = [
+                    os.path.join(file_dir, f)
+                    for f in os.listdir(file_dir)
+                    if f.startswith("test_") and f.endswith(".py")
+                ]
+                if test_files:
+                    import subprocess
+                    test_file = test_files[0]
+                    print(f"🔍 Auto-running companion test suite: {test_file}...")
+                    proc = subprocess.run(
+                        [sys.executable, "-m", "pytest", os.path.basename(test_file)],
+                        cwd=file_dir,
+                        capture_output=True,
+                        text=True,
+                    )
+                    error_log = (proc.stdout + proc.stderr).strip()
+                    print(f"📋 Captured error log ({len(error_log.splitlines())} lines).\n")
+    else:
+        # Default demo file if nothing specified
+        demo_file = "demo_bugs/bug1_off_by_one/calculator.py"
+        if os.path.exists(demo_file):
+            with open(demo_file, "r", encoding="utf-8") as f:
+                source = f.read()
+            file_path = "calculator.py"
+        else:
+            source = DEFAULT_BUGGY_CODE
+            file_path = "calculator.py"
 
     if not error_log:
         error_log = DEFAULT_ERROR_LOG

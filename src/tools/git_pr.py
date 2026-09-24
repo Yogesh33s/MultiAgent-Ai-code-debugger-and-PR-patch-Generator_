@@ -54,6 +54,11 @@ def open_pr(state: DebugState) -> str:
     """
     token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
     repo_name = os.getenv("GITHUB_REPO")
+    if not repo_name and state.get("repo_url"):
+        from urllib.parse import urlparse
+        parts = [p for p in urlparse(str(state["repo_url"]).strip()).path.strip("/").split("/") if p]
+        if len(parts) >= 2:
+            repo_name = f"{parts[0]}/{parts[1].replace('.git', '')}"
     file_path = state.get("file_path", "solution.py")
     fixed_code = state.get("fixed_code", "")
     patch_diff = state.get("patch_diff", "")

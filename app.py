@@ -128,54 +128,80 @@ footer, .gradio-footer, .built-with, [data-testid="footer"] { display:none !impo
 """
 
 
-def safe_extract(archive_path: str) -> tuple[str, list[str]]:
-    root = Path(tempfile.mkdtemp(prefix="debugflow_"))
-    discovered: list[str] = []
-    with zipfile.ZipFile(archive_path) as archive:
-        for member in archive.infolist():
-            target = (root / member.filename).resolve()
-            if root.resolve() not in target.parents and target != root.resolve():
-                raise ValueError("The archive contains an unsafe path.")
-        archive.extractall(root)
-    discovered = [str(path.relative_to(root)) for path in root.rglob("*.py") if path.is_file()]
-    return str(root), discovered
+from src.tools.repo_loader import (
+    safe_extract_zip,
+    clone_or_download_repo,
+    scan_workspace,
+    detect_failing_tests,
+    prepare_analyzer_payload,
+    is_valid_github_url,
+)
 
 
-def github_url_is_valid(url: str) -> bool:
-    parsed = urlparse((url or "").strip())
-    return parsed.scheme == "https" and parsed.netloc.lower() == "github.com" and bool(parsed.path.strip("/"))
-
-
-def upload_project(uploaded: str | None) -> tuple[str, Any, str, str]:
+def upload_project(uploaded: str | None) -> tuple[str, Any, str, str, str, str]:
     if not uploaded:
-        return "No project uploaded.", gr.update(choices=[], value=None), "", ""
+        return "No project uploaded.", gr.update(choices=[], value=None), "", "", "", ""
     try:
         path = Path(uploaded)
         if path.suffix.lower() == ".zip":
-            root, files = safe_extract(str(path))
+            root, files = safe_extract_zip(str(path))
             if not files:
-                return "No Python files detected.", gr.update(choices=[], value=None), "", root
-            first = files[0]
-            source = (Path(root) / first).read_text(encoding="utf-8", errors="replace")
-            return f"Uploaded {path.name} | {len(files)} Python file(s) detected.", gr.update(choices=files, value=first), source, root
+                return "No Python files detected in ZIP archive.", gr.update(choices=[], value=None), "", "", "", root
+            
+            # Automatically scan for failing tests in the extracted ZIP
+            failing_file, detected_error = detect_failing_tests(root)
+            selected_file = failing_file if failing_file else (files[0] if files else "solution.py")
+            source_code = (Path(root) / selected_file).read_text(encoding="utf-8", errors="replace")
+            
+            test_tag = f" | ⚠️ Detected failing test in {Path(failing_file).name}" if failing_file else ""
+            status_msg = f"✓ Extracted {path.name} ({len(files)} Python files){test_tag}"
+            return status_msg, gr.update(choices=files, value=selected_file), selected_file, source_code, detected_error or "", root
+
         if path.suffix.lower() == ".py":
-            return f"Uploaded {path.name}.", gr.update(choices=[path.name], value=path.name), path.read_text(encoding="utf-8", errors="replace"), str(path.parent)
-        return "Please upload a .zip or .py file.", gr.update(choices=[], value=None), "", ""
+            source = path.read_text(encoding="utf-8", errors="replace")
+            return f"✓ Loaded {path.name}", gr.update(choices=[path.name], value=path.name), path.name, source, "", str(path.parent)
+
+        return "Please upload a .zip or .py file.", gr.update(choices=[], value=None), "", "", "", ""
     except Exception as exc:
-        return f"Upload could not be read: {exc}", gr.update(choices=[], value=None), "", ""
+        return f"Upload error: {exc}", gr.update(choices=[], value=None), "", "", "", ""
 
 
-def load_selected_file(choice: str | None, workspace: str | None) -> str:
+def load_github_repo(repo_url: str, branch: str) -> tuple[str, Any, str, str, str, str]:
+    if not (repo_url or "").strip():
+        return "Please enter a GitHub repository URL.", gr.update(choices=[], value=None, visible=False), "", "", "", ""
+    if not is_valid_github_url(repo_url):
+        return "Invalid GitHub URL. Expected format: https://github.com/owner/repository", gr.update(choices=[], value=None, visible=False), "", "", "", ""
+
+    branch_name = (branch or "main").strip()
+    try:
+        cloned_dir, files = clone_or_download_repo(repo_url, branch_name)
+        if not files:
+            return f"Repository cloned, but no Python files were found on branch '{branch_name}'.", gr.update(choices=[], value=None, visible=False), "", "", "", cloned_dir
+
+        # Auto-detect failing tests in the cloned repository
+        failing_file, detected_error = detect_failing_tests(cloned_dir)
+        selected_file = failing_file if failing_file else (files[0] if files else "solution.py")
+        source_code = (Path(cloned_dir) / selected_file).read_text(encoding="utf-8", errors="replace")
+
+        test_tag = f" | ⚠️ Auto-detected failing tests in {Path(failing_file).name}!" if failing_file else ""
+        status_msg = f"✓ Cloned repository ({len(files)} Python files on branch '{branch_name}'){test_tag}"
+        return status_msg, gr.update(choices=files, value=selected_file, visible=True), selected_file, source_code, detected_error or "", cloned_dir
+    except Exception as exc:
+        return f"Failed to clone repository: {exc}", gr.update(choices=[], value=None, visible=False), "", "", "", ""
+
+
+def load_selected_file(choice: str | None, workspace: str | None) -> tuple[str, str]:
     if not choice or not workspace:
-        return ""
+        return "", ""
     candidate = (Path(workspace) / choice).resolve()
     root = Path(workspace).resolve()
     if root not in candidate.parents or candidate.suffix.lower() != ".py":
-        return ""
+        return choice or "", ""
     try:
-        return candidate.read_text(encoding="utf-8", errors="replace")
+        code = candidate.read_text(encoding="utf-8", errors="replace")
+        return choice, code
     except OSError:
-        return ""
+        return choice or "", ""
 
 
 def load_demo() -> tuple[str, str, str]:
@@ -211,17 +237,68 @@ def format_analysis(analysis: Any) -> str:
     return f"<div class='result-panel'>{analysis}</div>"
 
 
-def run_debugger(file_path: str, source_code: str, error_log: str, uploaded: str | None, target_file: str | None, repo_url: str, branch: str) -> Iterator[tuple[Any, ...]]:
-    if not source_code.strip() and uploaded:
-        _, _, source_code, _ = upload_project(uploaded)
+def run_debugger(
+    file_path: str,
+    source_code: str,
+    error_log: str,
+    uploaded: str | None,
+    target_file: str | None,
+    repo_url: str,
+    branch: str,
+    workspace: str | None,
+    repo_target_file: str | None,
+) -> Iterator[tuple[Any, ...]]:
+    active_file = repo_target_file or target_file or file_path or "solution.py"
+    repo_link = (repo_url or "").strip()
+
+    # 1. If GitHub URL is provided and source not yet loaded, clone/scan repo
+    if repo_link and (not source_code.strip() or not workspace):
+        if not is_valid_github_url(repo_link):
+            yield "<div class='fail-state'>! INVALID GITHUB URL</div>", pipeline_html({}, ""), "[system] Use a valid public https://github.com/owner/repository URL.", format_analysis(None), "", "", "", "", ""
+            return
+        try:
+            cloned_dir, files = clone_or_download_repo(repo_link, branch.strip() or "main")
+            workspace = cloned_dir
+            payload = prepare_analyzer_payload(workspace, target_file=active_file, error_log=error_log)
+            active_file = payload["file_path"]
+            source_code = payload["source_code"]
+            error_log = payload["error_log"]
+        except Exception as exc:
+            yield f"<div class='fail-state'>! REPOSITORY SCAN ERROR: {exc}</div>", pipeline_html({}, ""), f"[system] Failed to clone/scan repository: {exc}", format_analysis(None), "", "", "", "", ""
+            return
+
+    # 2. If uploaded project is provided and source not yet loaded, extract/scan ZIP
+    elif uploaded and (not source_code.strip() or not workspace):
+        try:
+            root, files = safe_extract_zip(uploaded)
+            workspace = root
+            payload = prepare_analyzer_payload(workspace, target_file=active_file, error_log=error_log)
+            active_file = payload["file_path"]
+            source_code = payload["source_code"]
+            error_log = payload["error_log"]
+        except Exception as exc:
+            yield f"<div class='fail-state'>! ZIP EXTRACTION ERROR: {exc}</div>", pipeline_html({}, ""), f"[system] Failed to extract ZIP: {exc}", format_analysis(None), "", "", "", "", ""
+            return
+
     if not source_code.strip():
-        yield "<div class='fail-state'>! ADD SOURCE CODE BEFORE RUNNING</div>", pipeline_html({}, ""), "[system] Paste code, upload a project, or load the demo.", format_analysis(None), "", "", "", "", ""
+        yield "<div class='fail-state'>! ADD SOURCE CODE BEFORE RUNNING</div>", pipeline_html({}, ""), "[system] Paste code, upload a project (.zip), or enter a GitHub repository URL.", format_analysis(None), "", "", "", "", ""
         return
-    if repo_url and not github_url_is_valid(repo_url):
-        yield "<div class='fail-state'>! INVALID GITHUB URL</div>", pipeline_html({}, ""), "[system] Use a public https://github.com/owner/repository URL.", format_analysis(None), "", "", "", "", ""
-        return
-    state: dict[str, Any] = {"repo_path": "", "error_log": error_log or "", "source_code": source_code, "file_path": target_file or file_path or "untitled.py", "attempts": 0, "max_attempts": 3, "logs": []}
-    log_lines: list[str] = ["[system] DebugFlow AI initialized", "[system] Streaming graph events..."]
+
+    state: dict[str, Any] = {
+        "repo_url": repo_link,
+        "repo_path": workspace or "",
+        "error_log": error_log or f"Automated defect inspection for {active_file}",
+        "source_code": source_code,
+        "file_path": active_file,
+        "attempts": 0,
+        "max_attempts": 3,
+        "logs": [f"Analyzer: starting diagnosis on {active_file}" + (f" from {repo_link}" if repo_link else "")]
+    }
+    log_lines: list[str] = [
+        "[system] DebugFlow AI initialized",
+        f"[scanner] Loaded target file: {active_file}" + (f" from {repo_link}" if repo_link else ""),
+        "[system] Streaming graph events through Analyzer -> Test Generator -> Fixer -> Verify..."
+    ]
     yield "<div class='status-strip'>◉ DEBUGGING... agents are coordinating</div>", pipeline_html(state, "analyzer"), "\n".join(log_lines), format_analysis(None), "", "", "", "", ""
     try:
         for event in build_graph().stream(state):
@@ -251,7 +328,7 @@ def run_debugger(file_path: str, source_code: str, error_log: str, uploaded: str
         yield "<div class='fail-state'>! SOMETHING WENT WRONG · SEE TECHNICAL DETAILS</div>", pipeline_html(state, ""), "\n".join(log_lines + [details]), format_analysis(state.get("analysis")), state.get("generated_tests", ""), state.get("fixed_code", ""), state.get("patch_diff", ""), state.get("test_output", ""), state.get("pr_url", "")
 
 
-with gr.Blocks(title="DebugFlow AI", css=CSS, theme=gr.themes.Base()) as demo:
+with gr.Blocks(title="DebugFlow AI") as demo:
     workspace = gr.State("")
     with gr.Row(elem_id="topbar"):
         gr.HTML("<div class='brand'><span class='brand-mark'>DF</span> DebugFlow AI</div>")
@@ -274,14 +351,16 @@ with gr.Blocks(title="DebugFlow AI", css=CSS, theme=gr.themes.Base()) as demo:
                 with gr.Row():
                     upload = gr.File(label="UPLOAD PROJECT · .ZIP OR .PY", file_types=[".zip", ".py"], type="filepath", elem_classes="upload-box")
                     with gr.Column():
-                        upload_status = gr.Markdown("No project uploaded.")
+                        upload_status = gr.Markdown("No project uploaded. Upload a .zip or .py to auto-extract files.")
                         target_file = gr.Dropdown(label="Target Python file", choices=[], allow_custom_value=False)
                 upload_error = gr.Markdown(visible=False)
             with gr.Tab("GitHub Repository"):
                 with gr.Row():
-                    repo_input = gr.Textbox(label="GitHub repository", placeholder="https://github.com/user/repository")
-                    branch_input = gr.Textbox(label="Branch", value="main")
-                gr.Markdown("Authentication required for private repositories. Credentials are handled by the backend and never displayed here.")
+                    repo_input = gr.Textbox(label="GitHub repository URL", placeholder="https://github.com/user/repository", scale=3)
+                    branch_input = gr.Textbox(label="Branch", value="main", scale=1)
+                    fetch_repo_btn = gr.Button("⚡ Fetch & Scan Repo", elem_classes="secondary-button", scale=1)
+                repo_status = gr.Markdown("Enter a public GitHub repository link (e.g. `https://github.com/owner/repo`) and click 'Fetch & Scan Repo'.")
+                repo_target_file = gr.Dropdown(label="Discovered Repository Python Files", choices=[], allow_custom_value=False, visible=False)
         with gr.Row():
             run_button = gr.Button("▶  RUN DEBUGGER", elem_classes="primary-button", variant="primary", scale=2)
             clear_button = gr.ClearButton(value="Clear", components=[source_input, error_input, repo_input], elem_classes="secondary-button", scale=0)
@@ -314,9 +393,15 @@ with gr.Blocks(title="DebugFlow AI", css=CSS, theme=gr.themes.Base()) as demo:
     gr.HTML("<div class='rights-line'>DEBUGFLOW AI · AUTONOMOUS DEBUGGING FOR REAL-WORLD CODE · ALL RIGHTS RESERVED TO TEAMZEROIQ</div>")
 
     demo_button.click(load_demo, outputs=[file_input, source_input, error_input])
-    upload.change(upload_project, inputs=upload, outputs=[upload_status, target_file, source_input, workspace])
-    target_file.change(load_selected_file, inputs=[target_file, workspace], outputs=source_input)
-    run_button.click(run_debugger, inputs=[file_input, source_input, error_input, upload, target_file, repo_input, branch_input], outputs=[run_status, pipeline, log_output, analysis_output, tests_output, fixed_output, patch_output, verification_output, pr_output])
+    upload.change(upload_project, inputs=upload, outputs=[upload_status, target_file, file_input, source_input, error_input, workspace])
+    target_file.change(load_selected_file, inputs=[target_file, workspace], outputs=[file_input, source_input])
+    fetch_repo_btn.click(load_github_repo, inputs=[repo_input, branch_input], outputs=[repo_status, repo_target_file, file_input, source_input, error_input, workspace])
+    repo_target_file.change(load_selected_file, inputs=[repo_target_file, workspace], outputs=[file_input, source_input])
+    run_button.click(
+        run_debugger,
+        inputs=[file_input, source_input, error_input, upload, target_file, repo_input, branch_input, workspace, repo_target_file],
+        outputs=[run_status, pipeline, log_output, analysis_output, tests_output, fixed_output, patch_output, verification_output, pr_output]
+    )
 
 
 if __name__ == "__main__":
